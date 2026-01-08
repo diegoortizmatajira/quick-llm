@@ -1,0 +1,22 @@
+[project]
+name = "quick-llm"
+version = "0.1.0"
+description = "Tools for quickly building and deploying large language model applications."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain>=1.2.1",
+    "langchain-community>=0.4.1",
+    "langchain-core>=1.2.6",
+    "pydantic>=2.12.5",
+]
+[tool.pylint]
+ignore = [".env", "venv", ".venv", "build", "dist"]
+init-hook = "import sys; sys.path.insert(0, 'src')"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = ["pydebug>=1.0.3", "pylint>=4.0.2", "pytest>=9.0.0"]
