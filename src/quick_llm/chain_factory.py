@@ -29,29 +29,24 @@ class ChainFactory(Generic[ChainOutputVar]):
         self,
         output_type: type[ChainOutputVar] = str,
     ) -> None:
+        # Logger setup
         self.__logger = logging.getLogger(__name__)
         self.__detailed_logging: bool = False
-        self.__input_transformer: RunnableGenerator[ChainInputType, dict] | None = None
-        self.__output_transformer: (
-            RunnableSerializable[LanguageModelOutput, ChainOutputVar] | None
-        ) = None
-        self.__output_cleaner_function: Callable[[str], str] = (
-            self.default_cleaner_function
-        )
+        # Transformers (Input/Output)
+        self.__in_transf: Runnable[ChainInputType, dict] | None = None
+        self.__out_transf: Runnable[LanguageModelOutput, ChainOutputVar] | None = None
+        # Output cleaner function
+        self.__out_cleaner: Callable[[str], str] = self.default_cleaner_function
+        # LLM components
         self.__language_model: LanguageModelLike | None = None
         self.__prompt_template: BasePromptTemplate[PromptValue] | None = None
+        # Parameter names
         self.__param_input: str = "input"
         self.__param_format_instructions: str = "format_instructions"
+        # JSON model for output parsing
         self.__json_model: type[BaseModel] | None = None
         # Conditional initialization based on output_type
         self.__output_type = output_type
-        if self.__output_type is str:
-            self.use_output_transformer(
-                cast(
-                    RunnableSerializable[LanguageModelOutput, ChainOutputVar],
-                    StrOutputParser(),
-                )
-            )
 
     @staticmethod
     def for_json_model(
@@ -95,7 +90,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         #     return json.dumps(value, indent=2)
         return value
 
-    def passthrough_logger[T](self, caption: str) -> RunnableGenerator[T, T]:
+    def passthrough_logger[T](self, caption: str) -> Runnable[T, T]:
         """Captures the outputs and logs it. It is included in the default implementation of `wrap_chain` method"""
 
         def output_collector(output: Iterator[T]) -> Iterator[T]:
@@ -164,15 +159,15 @@ class ChainFactory(Generic[ChainOutputVar]):
         return self.__param_format_instructions
 
     @property
-    def input_transformer(self) -> RunnableGenerator[ChainInputType, dict]:
+    def input_transformer(self) -> Runnable[ChainInputType, dict]:
         """
         Gets the input transformer instance.
 
-        :return: The current instance of RunnableGenerator for input transformation.
+        :return: The current instance of Runnable for input transformation.
         """
-        if self.__input_transformer is None:
-            self.__input_transformer = PromptInputParser(self.__param_input)
-        return self.__input_transformer
+        if self.__in_transf is None:
+            self.__in_transf = PromptInputParser(self.__param_input)
+        return self.__in_transf
 
     @property
     def additional_values_injector(self) -> RunnableLambda[dict, dict]:
@@ -206,7 +201,7 @@ class ChainFactory(Generic[ChainOutputVar]):
     @property
     def output_cleaner(
         self,
-    ) -> RunnableGenerator[LanguageModelOutput, LanguageModelOutput]:
+    ) -> Runnable[LanguageModelOutput, LanguageModelOutput]:
         """
         This function is used to clean the output messages from invalid escape sequences.
         It is included in the default implementation of chains to ensure the output is valid.
@@ -215,16 +210,14 @@ class ChainFactory(Generic[ChainOutputVar]):
         def clean_item(item: LanguageModelOutput) -> LanguageModelOutput:
             if isinstance(item, BaseMessage):
                 if isinstance(item.content, str):
-                    item.content = self.__output_cleaner_function(item.content)
+                    item.content = self.__out_cleaner(item.content)
                 elif isinstance(item.content, list):
                     item.content = [
-                        self.__output_cleaner_function(item)
-                        if isinstance(item, str)
-                        else item
+                        self.__out_cleaner(item) if isinstance(item, str) else item
                         for item in item.content
                     ]
             if isinstance(item, str):
-                item = self.__output_cleaner_function(item)
+                item = self.__out_cleaner(item)
             return item
 
         def clean_generator(
@@ -244,15 +237,25 @@ class ChainFactory(Generic[ChainOutputVar]):
     @property
     def output_transformer(
         self,
-    ) -> RunnableSerializable[LanguageModelOutput, ChainOutputVar]:
+    ) -> Runnable[LanguageModelOutput, ChainOutputVar]:
         """
         Gets the output transformer instance.
 
-        :return: The current instance of RunnableGenerator for output transformation.
+        :return: The current instance of Runnable for output transformation.
         """
-        if self.__output_transformer is None:
-            raise self.__fail("Output transformer is not set.")
-        return self.__output_transformer
+        if self.__out_transf:
+            return self.__out_transf
+        if self.__output_type is str:
+            self.use_output_transformer(
+                cast(
+                    Runnable[LanguageModelOutput, ChainOutputVar],
+                    StrOutputParser(),
+                )
+            )
+            # Calls recursively to return the newly set transformer
+            return self.output_transformer
+
+        raise self.__fail("Output transformer is not set.")
 
     def use(self, visitor: Callable[[Self], None]) -> Self:
         """
@@ -384,17 +387,17 @@ class ChainFactory(Generic[ChainOutputVar]):
         return self
 
     def use_output_transformer(
-        self, output_parser: RunnableSerializable[LanguageModelOutput, ChainOutputVar]
+        self, output_parser: Runnable[LanguageModelOutput, ChainOutputVar]
     ) -> Self:
         """
         Sets the output transformer instance.
 
-        :param output_parser: An instance of RunnableGenerator for output transformation.
+        :param output_parser: An instance of Runnable for output transformation.
         If None, a default StrOutputParser is used.
         :return: The ChainFactory instance for method chaining.
         """
-        self.__output_transformer = output_parser
-        self.__logger.debug("Setting output transformer: %s", self.__output_transformer)
+        self.__out_transf = output_parser
+        self.__logger.debug("Setting output transformer: %s", self.__out_transf)
         return self
 
     def use_custom_output_cleaner(self, cleaner_function: Callable[[str], str]) -> Self:
@@ -404,7 +407,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         :param cleaner_function: A callable that takes a string and returns a cleaned string.
         :return: The ChainFactory instance for method chaining.
         """
-        self.__output_cleaner_function = cleaner_function
+        self.__out_cleaner = cleaner_function
         self.__logger.debug("Setting custom output cleaner function.")
         return self
 
