@@ -4,7 +4,6 @@ import logging
 from typing import AsyncIterator, Callable, Generic, Iterator, Self, cast, overload
 
 from langchain_core.language_models import (
-    BaseLanguageModel,
     LanguageModelLike,
     LanguageModelOutput,
 )
@@ -14,7 +13,7 @@ from langchain_core.prompt_values import PromptValue
 from langchain_core.prompts.base import BasePromptTemplate
 from langchain_core.prompts.prompt import PromptTemplate
 from langchain_core.prompts.string import PromptTemplateFormat
-from langchain_core.runnables import RunnableGenerator, RunnableLambda
+from langchain_core.runnables import Runnable, RunnableGenerator, RunnableLambda
 from langchain_core.runnables.base import RunnableSerializable
 from pydantic import BaseModel
 
@@ -22,7 +21,7 @@ from quick_llm.prompt_input_parser import PromptInputParser
 from quick_llm.type_definitions import ChainInputType, ChainOutputVar
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes disable=too-many-public-methods
 class ChainFactory(Generic[ChainOutputVar]):
     """Factory class for managing language model instances."""
 
@@ -31,6 +30,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         output_type: type[ChainOutputVar] = str,
     ) -> None:
         self.__logger = logging.getLogger(__name__)
+        self.__detailed_logging: bool = False
         self.__input_transformer: RunnableGenerator[ChainInputType, dict] | None = None
         self.__output_transformer: (
             RunnableSerializable[LanguageModelOutput, ChainOutputVar] | None
@@ -77,6 +77,51 @@ class ChainFactory(Generic[ChainOutputVar]):
         :return: The cleaned text.
         """
         return text.replace("\\_", "_")
+
+    @staticmethod
+    def get_readable_value(value: object) -> object:
+        """
+        Converts the input object into a human-readable format.
+
+        :param value: The object to be converted. This can be a BaseMessage, BaseModel, or other types.
+        :return: A human-readable representation of the object.
+        """
+        # WARN: If there are non-serializable objects, this method should be updated to handle them or it will fail
+        if isinstance(value, BaseMessage):
+            return value.model_dump_json(indent=2)
+        if isinstance(value, BaseModel):
+            return value.model_dump_json(indent=2)
+        # elif isinstance(value, dict):
+        #     return json.dumps(value, indent=2)
+        return value
+
+    def passthrough_logger[T](self, caption: str) -> RunnableGenerator[T, T]:
+        """Captures the outputs and logs it. It is included in the default implementation of `wrap_chain` method"""
+
+        def output_collector(output: Iterator[T]) -> Iterator[T]:
+            for item in output:
+                self.__logger.debug(f"{caption}: %s", self.get_readable_value(item))
+                yield item
+
+        async def aoutput_collector(output: AsyncIterator[T]) -> AsyncIterator[T]:
+            async for item in output:
+                self.__logger.debug(f"{caption}: %s", self.get_readable_value(item))
+                yield item
+
+        return RunnableGenerator(output_collector, aoutput_collector)
+
+    def wrap[Input, Output](
+        self, runnable: Runnable[Input, Output], caption: str
+    ) -> Runnable[Input, Output]:
+        """
+        Wraps a runnable with detailed logging if enabled.
+
+        :param runnable: The runnable to be wrapped.
+        :return: The wrapped runnable with logging if detailed logging is enabled.
+        """
+        if self.__detailed_logging:
+            return runnable | self.passthrough_logger(caption)
+        return runnable
 
     @property
     def language_model(self) -> LanguageModelLike:
@@ -220,6 +265,17 @@ class ChainFactory(Generic[ChainOutputVar]):
         visitor(self)
         return self
 
+    def use_detailed_logging(self, enable: bool = True) -> Self:
+        """
+        Enables or disables detailed logging for the ChainFactory.
+
+        :param enable: A boolean flag to enable or disable detailed logging. Defaults to True.
+        :return: The ChainFactory instance for method chaining.
+        """
+        self.__detailed_logging = enable
+        self.__logger.debug("Setting detailed logging to %s", self.__detailed_logging)
+        return self
+
     def use_language_model(self, language_model: LanguageModelLike) -> Self:
         """
         Sets the language model instance.
@@ -341,6 +397,17 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__logger.debug("Setting output transformer: %s", self.__output_transformer)
         return self
 
+    def use_custom_output_cleaner(self, cleaner_function: Callable[[str], str]) -> Self:
+        """
+        Sets a custom output cleaner function.
+
+        :param cleaner_function: A callable that takes a string and returns a cleaned string.
+        :return: The ChainFactory instance for method chaining.
+        """
+        self.__output_cleaner_function = cleaner_function
+        self.__logger.debug("Setting custom output cleaner function.")
+        return self
+
     def build(
         self,
     ) -> RunnableSerializable[ChainInputType, ChainOutputVar]:
@@ -357,11 +424,11 @@ class ChainFactory(Generic[ChainOutputVar]):
         :return: A RunnableSerializable instance representing the complete chain.
         """
         chain = (
-            self.input_transformer
-            | self.additional_values_injector
-            | self.prompt_template
-            | self.language_model
-            | self.output_cleaner
-            | self.output_transformer
+            self.wrap(self.input_transformer, "Input Transformer")
+            | self.wrap(self.additional_values_injector, "Additional Values Injector")
+            | self.wrap(self.prompt_template, "Prompt Template")
+            | self.wrap(self.language_model, "Language Model")
+            | self.wrap(self.output_cleaner, "Output Cleaner")
+            | self.wrap(self.output_transformer, "Output Transformer")
         )
         return chain
