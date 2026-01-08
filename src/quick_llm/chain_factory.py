@@ -1,14 +1,14 @@
 """Factory class for managing language model instances."""
 
 import logging
-from typing import Callable, Generic, Self, cast, overload
+from typing import AsyncIterator, Callable, Generic, Iterator, Self, cast, overload
 
 from langchain_core.language_models import (
     BaseLanguageModel,
     LanguageModelLike,
     LanguageModelOutput,
 )
-from langchain_core.language_models.base import LanguageModelOutputVar
+from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompt_values import PromptValue
 from langchain_core.prompts.base import BasePromptTemplate
@@ -22,6 +22,7 @@ from quick_llm.prompt_input_parser import PromptInputParser
 from quick_llm.type_definitions import ChainInputType, ChainOutputVar
 
 
+# pylint: disable=too-many-instance-attributes
 class ChainFactory(Generic[ChainOutputVar]):
     """Factory class for managing language model instances."""
 
@@ -34,6 +35,9 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__output_transformer: (
             RunnableSerializable[LanguageModelOutput, ChainOutputVar] | None
         ) = None
+        self.__output_cleaner_function: Callable[[str], str] = (
+            self.default_cleaner_function
+        )
         self.__language_model: LanguageModelLike | None = None
         self.__prompt_template: BasePromptTemplate[PromptValue] | None = None
         self.__param_input: str = "input"
@@ -64,6 +68,15 @@ class ChainFactory(Generic[ChainOutputVar]):
     def __fail(self, message: str) -> Exception:
         self.__logger.error(message)
         return RuntimeError(message)
+
+    def default_cleaner_function(self, text: str) -> str:
+        """
+        Default function to clean the output text.
+
+        :param text: The text to be cleaned.
+        :return: The cleaned text.
+        """
+        return text.replace("\\_", "_")
 
     @property
     def language_model(self) -> LanguageModelLike:
@@ -146,9 +159,47 @@ class ChainFactory(Generic[ChainOutputVar]):
         return RunnableLambda[dict, dict](lambda x: {**x, **additional_values})
 
     @property
+    def output_cleaner(
+        self,
+    ) -> RunnableGenerator[LanguageModelOutput, LanguageModelOutput]:
+        """
+        This function is used to clean the output messages from invalid escape sequences.
+        It is included in the default implementation of chains to ensure the output is valid.
+        """
+
+        def clean_item(item: LanguageModelOutput) -> LanguageModelOutput:
+            if isinstance(item, BaseMessage):
+                if isinstance(item.content, str):
+                    item.content = self.__output_cleaner_function(item.content)
+                elif isinstance(item.content, list):
+                    item.content = [
+                        self.__output_cleaner_function(item)
+                        if isinstance(item, str)
+                        else item
+                        for item in item.content
+                    ]
+            if isinstance(item, str):
+                item = self.__output_cleaner_function(item)
+            return item
+
+        def clean_generator(
+            output_values: Iterator[LanguageModelOutput],
+        ) -> Iterator[LanguageModelOutput]:
+            for item in output_values:
+                yield clean_item(item)
+
+        async def aclean_generator(
+            output_values: AsyncIterator[LanguageModelOutput],
+        ) -> AsyncIterator[LanguageModelOutput]:
+            async for item in output_values:
+                yield clean_item(item)
+
+        return RunnableGenerator(clean_generator, aclean_generator)
+
+    @property
     def output_transformer(
         self,
-    ) -> RunnableSerializable[LanguageModelOutputVar, ChainOutputVar]:
+    ) -> RunnableSerializable[LanguageModelOutput, ChainOutputVar]:
         """
         Gets the output transformer instance.
 
@@ -169,7 +220,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         visitor(self)
         return self
 
-    def use_language_model(self, language_model: BaseLanguageModel) -> Self:
+    def use_language_model(self, language_model: LanguageModelLike) -> Self:
         """
         Sets the language model instance.
 
@@ -310,6 +361,7 @@ class ChainFactory(Generic[ChainOutputVar]):
             | self.additional_values_injector
             | self.prompt_template
             | self.language_model
+            | self.output_cleaner
             | self.output_transformer
         )
         return chain
