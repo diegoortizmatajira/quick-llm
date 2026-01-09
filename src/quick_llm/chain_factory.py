@@ -22,7 +22,7 @@ from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompt_values import PromptValue
 from langchain_core.prompts import BasePromptTemplate, PromptTemplate
 from langchain_core.prompts.string import PromptTemplateFormat
-from langchain_core.retrievers import BaseRetriever
+from langchain_core.retrievers import RetrieverLike
 from langchain_core.runnables import (
     Runnable,
     RunnableGenerator,
@@ -74,7 +74,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__text_splitter: TextSplitter | None = None
         self.__embeddings: Embeddings | None = None
         self.__vector_store: VectorStore | None = None
-        self.__retriever: BaseRetriever | None = None
+        self.__retriever: RetrieverLike | None = None
         # Parameter names
         self.__param_input: str = "input"
         self.__param_format_instructions: str = "format_instructions"
@@ -84,12 +84,13 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__source_documents_key: str = "source_documents"
         # JSON model for output parsing
         self.__json_model: type[BaseModel] | None = None
-        # Conditional initialization based on output_type
-        self.__output_type = output_type
         # usage flags
         self.__use_rag: bool = False
         self.__rag_return_sources: bool = False
         self.__rag_return_sources_formatted_as_string: bool = False
+        self.__logger.debug(
+            "Initialized ChainFactory with output type: %s", output_type
+        )
 
     @staticmethod
     def for_json_model(
@@ -330,7 +331,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         """
         if self.__out_transf:
             return self.__out_transf
-        if self.__output_type is str:
+        if self.__json_model is None:
             self.use_output_transformer(
                 cast(
                     Runnable[LanguageModelOutput, ChainOutputVar],
@@ -376,11 +377,11 @@ class ChainFactory(Generic[ChainOutputVar]):
         return self.__vector_store
 
     @property
-    def retriever(self) -> BaseRetriever:
+    def retriever(self) -> RetrieverLike:
         """
         Gets the retriever instance.
 
-        :return: The current instance of BaseRetriever.
+        :return: The current instance of RetrieverLike.
         """
         if self.__retriever is None:
             raise self.__fail("Retriever is not set.")
@@ -431,6 +432,24 @@ class ChainFactory(Generic[ChainOutputVar]):
                 yield references_text
 
         return RunnableGenerator(formatter)
+
+    @property
+    def answer_key(self) -> str:
+        """
+        Gets the name of the answer key in the output.
+
+        :return: The name of the answer key.
+        """
+        return self.__answer_key
+
+    @property
+    def document_references_key(self) -> str:
+        """
+        Gets the name of the document references key in the output.
+
+        :return: The name of the document references key.
+        """
+        return self.__source_documents_key
 
     def use(self, visitor: Callable[[Self], None]) -> Self:
         """
@@ -702,7 +721,9 @@ class ChainFactory(Generic[ChainOutputVar]):
 
     def use_vector_store(self, vector_store: VectorStore) -> Self:
         """
-        Sets the vector store instance.
+        Sets the vector store instance and enables Retrieval-Augmented Generation (RAG).
+
+        By default, the vector store is also used as a retriever.
 
         :param vector_store: An instance of VectorStore to set.
         :return: The ChainFactory instance for method chaining.
@@ -710,13 +731,15 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.use_rag(True)
         self.__vector_store = vector_store
         self.__logger.debug("Setting vector store: %s", self.__vector_store)
+        # By default, uses the vector store as retriever
+        self.__retriever = vector_store.as_retriever()
         return self
 
-    def use_retriever(self, retriever: BaseRetriever) -> Self:
+    def use_retriever(self, retriever: RetrieverLike) -> Self:
         """
         Sets the retriever instance.
 
-        :param retriever: An instance of BaseRetriever to set.
+        :param retriever: An instance of RetrieverLike to set.
         :return: The ChainFactory instance for method chaining.
         """
         self.use_rag(True)
@@ -820,7 +843,9 @@ class ChainFactory(Generic[ChainOutputVar]):
         )
         if self.__rag_return_sources_formatted_as_string:
             # Formats the source documents as a single string
-            chain = chain | self.final_answer_formatter
+            chain = chain | self.wrap(
+                self.final_answer_formatter, "Final Answer Formatter"
+            )
         # INFO: uses a cast to avoid LSP error about incompatible types
         return cast(Runnable[ChainInputType, ChainOutputVar], chain)
 

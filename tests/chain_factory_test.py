@@ -1,6 +1,10 @@
 """Tests for the ChainFactory class"""
 
+from typing import cast
+
 import pytest
+from langchain_core.documents import Document
+from langchain_core.embeddings import FakeEmbeddings
 from langchain_core.language_models import (
     FakeListChatModel,
     FakeListLLM,
@@ -9,6 +13,8 @@ from langchain_core.language_models import (
     LanguageModelOutput,
 )
 from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.runnables import RunnableLambda
+from langchain_core.vectorstores import InMemoryVectorStore
 from pydantic import BaseModel, Field
 
 from quick_llm.chain_factory import ChainFactory
@@ -22,6 +28,11 @@ TEST_INPUT_SAMPLES: list[ChainInputType] = [
 ]
 BADLY_ESCAPED_STRING = r"This is a bad \_ json string"
 EXPECTED_FIXED_STRING = "This is a bad _ json string"
+FAKE_DOCUMENT1 = Document(
+    page_content="This is a fake document", metadata={"source": "FakeDocument"}
+)
+FAKE_DOCUMENT2 = Document(page_content="This is another fake document with no metadata")
+TEST_DOCUMENT_LIST = [FAKE_DOCUMENT1, FAKE_DOCUMENT2]
 
 
 class AnswerOutput(BaseModel):
@@ -52,7 +63,7 @@ def __get_test_streaming_models(expected_response: str) -> list[LanguageModelLik
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_string_chain_factory(input_value: ChainInputType):
+def test_string(input_value: ChainInputType):
     """Test the factory with a string output"""
     models = __get_test_models(TEST_EXPECTED_RESPONSE)
     for model in models:
@@ -68,7 +79,7 @@ def test_string_chain_factory(input_value: ChainInputType):
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_json_chain_factory(input_value: ChainInputType):
+def test_json(input_value: ChainInputType):
     """Test the factory with a json output"""
     mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
     models = __get_test_models(mocked_response)
@@ -87,7 +98,7 @@ def test_json_chain_factory(input_value: ChainInputType):
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_stream_chain_factory(input_value: ChainInputType):
+def test_string_stream(input_value: ChainInputType):
     """Test the factory with a simple text chain using streaming on a chat model and a non-chat model"""
     models = __get_test_streaming_models(TEST_EXPECTED_RESPONSE)
     for model in models:
@@ -108,7 +119,7 @@ def test_stream_chain_factory(input_value: ChainInputType):
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_stream_json_chain_factory(input_value: ChainInputType):
+def test_json_stream(input_value: ChainInputType):
     """Test the factory with a json output"""
     mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
     models = __get_test_streaming_models(mocked_response)
@@ -148,7 +159,7 @@ def test_stream_json_chain_factory(input_value: ChainInputType):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_async_chain_factory(input_value: ChainInputType):
+async def test_string_async(input_value: ChainInputType):
     """Test the factory with a simple text chain"""
     models = __get_test_models(TEST_EXPECTED_RESPONSE)
     for model in models:
@@ -164,7 +175,7 @@ async def test_async_chain_factory(input_value: ChainInputType):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_async_json_chain_factory(input_value: ChainInputType):
+async def test_json_async(input_value: ChainInputType):
     """Test the factory with a json output"""
     mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
     models = __get_test_models(mocked_response)
@@ -230,7 +241,7 @@ def test_additional_values_injector():
         ),
     ],
 )
-def test_clean_output(
+def test_output_cleaner(
     test_input: LanguageModelOutput, expected_output: LanguageModelOutput
 ):
     """Test the text cleaning function"""
@@ -238,3 +249,86 @@ def test_clean_output(
     cleaner = llm.output_cleaner
     output = cleaner.invoke(test_input)
     assert output == expected_output
+
+
+@pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
+def test_rag_string(input_value: ChainInputType):
+    """Test the factory with a string output"""
+    models = __get_test_models(TEST_EXPECTED_RESPONSE)
+
+    def retriever_func(_: str) -> list[Document]:
+        return [FAKE_DOCUMENT1, FAKE_DOCUMENT2]
+
+    mock_embeddings = FakeEmbeddings(size=3)
+    mock_vectorstore = InMemoryVectorStore(mock_embeddings)
+    mock_retriever = RunnableLambda(retriever_func)
+
+    for model in models:
+        factory = (
+            ChainFactory()
+            .use_prompt_template("Sample Prompt {input} {context}")
+            .use_language_model(model)
+            .use_default_text_splitter()
+            .use_embeddings(mock_embeddings)
+            .use_vector_store(mock_vectorstore)
+            .use_retriever(mock_retriever)
+            .use_detailed_logging()
+        )
+        chain = factory.build()
+        response = chain.invoke(input_value)
+        assert response == TEST_EXPECTED_RESPONSE
+
+
+@pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
+def test_rag_string_with_documents(input_value: ChainInputType):
+    """Test the factory with a string output"""
+    models = __get_test_models(TEST_EXPECTED_RESPONSE)
+
+    mock_embeddings = FakeEmbeddings(size=3)
+    mock_vectorstore = InMemoryVectorStore(mock_embeddings)
+    mock_vectorstore.add_documents(TEST_DOCUMENT_LIST)
+
+    for model in models:
+        factory = (
+            ChainFactory()
+            .use_prompt_template("Sample Prompt {input} {context}")
+            .use_language_model(model)
+            .use_default_text_splitter()
+            .use_embeddings(mock_embeddings)
+            .use_vector_store(mock_vectorstore)
+            .use_rag_returning_sources(True, True)
+            .use_detailed_logging()
+        )
+        chain = factory.build()
+        response = chain.invoke(input_value)
+        assert isinstance(response, str)
+        assert response.startswith(TEST_EXPECTED_RESPONSE)
+        # Length should be greater than expected response due to appended sources
+        assert len(response) > len(TEST_EXPECTED_RESPONSE)
+
+
+@pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
+def test_rag_dict_with_documents(input_value: ChainInputType):
+    """Test the factory with a string output"""
+    models = __get_test_models(TEST_EXPECTED_RESPONSE)
+
+    mock_embeddings = FakeEmbeddings(size=3)
+    mock_vectorstore = InMemoryVectorStore(mock_embeddings)
+    mock_vectorstore.add_documents(TEST_DOCUMENT_LIST)
+
+    for model in models:
+        factory = (
+            ChainFactory.for_rag_with_sources()
+            .use_prompt_template("Sample Prompt {input} {context}")
+            .use_language_model(model)
+            .use_default_text_splitter()
+            .use_embeddings(mock_embeddings)
+            .use_vector_store(mock_vectorstore)
+            .use_detailed_logging()
+        )
+        chain = factory.build()
+        response = chain.invoke(input_value)
+        assert isinstance(response, dict)
+        assert response.get(factory.answer_key, "None") == TEST_EXPECTED_RESPONSE
+        referenced_docs = cast(list, response.get(factory.document_references_key, []))
+        assert len(referenced_docs) == len(TEST_DOCUMENT_LIST)
