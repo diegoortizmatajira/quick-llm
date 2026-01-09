@@ -431,7 +431,21 @@ class ChainFactory(Generic[ChainOutputVar]):
             if references_text:
                 yield references_text
 
-        return RunnableGenerator(formatter)
+        async def aformatter(answers: AsyncIterator[dict]) -> AsyncIterator[str]:
+            references_text: str | None = None
+            async for answer in answers:
+                # If the answer contains the answer key, then it streams its content
+                if answer.get(self.__answer_key, None):
+                    yield answer[self.__answer_key]
+                # If the answer contains the documents key, keep it until it finishes streaming the answer
+                if answer.get(self.__source_documents_key, None):
+                    docs = cast(list[Document], answer[self.__source_documents_key])
+                    references_text = self.__doc_refs_formatter(docs)
+            # If it has a generated references_text, then send it to the output
+            if references_text:
+                yield references_text
+
+        return RunnableGenerator(formatter, aformatter)
 
     @property
     def answer_key(self) -> str:
