@@ -25,10 +25,9 @@ from langchain_core.prompts.string import PromptTemplateFormat
 from langchain_core.retrievers import RetrieverLike
 from langchain_core.runnables import (
     Runnable,
+    RunnableAssign,
     RunnableGenerator,
     RunnableLambda,
-    RunnablePassthrough,
-    RunnableSerializable,
 )
 from langchain_core.vectorstores import VectorStore
 from langchain_text_splitters import (
@@ -256,7 +255,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         return self.__in_transf
 
     @property
-    def additional_values_injector(self) -> RunnableLambda[dict, dict]:
+    def additional_values_injector(self) -> Runnable[dict, dict]:
         """
         Provides a lambda function that injects additional values into the existing input dictionary.
 
@@ -265,7 +264,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         specific to the JSON model to the `additional_values` dictionary. The lambda function merges the
         existing input dictionary with these additional values.
 
-        :return: A RunnableLambda instance that injects additional values into the input dictionary.
+        :return: A Runnable instance that injects additional values into the input dictionary.
         """
         additional_values: dict[str, object] = {}
 
@@ -609,7 +608,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__json_model = model
         self.use_output_transformer(
             cast(
-                RunnableSerializable[LanguageModelOutput, ChainOutputVar],
+                Runnable[LanguageModelOutput, ChainOutputVar],
                 JsonOutputParser(pydantic_object=self.__json_model),
             )
         )
@@ -818,7 +817,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         - Language model: Generates an output based on the prompt.
         - Output transformer: Parses and transforms the model output into the desired format.
 
-        :return: A RunnableSerializable instance representing the complete chain.
+        :return: A Runnable instance representing the complete chain.
         """
         return (
             self.wrap(self.input_transformer, "Input Transformer")
@@ -832,15 +831,15 @@ class ChainFactory(Generic[ChainOutputVar]):
     def __build_with_rag(self) -> Runnable[ChainInputType, ChainOutputVar]:
         return (
             self.wrap(self.input_transformer, "Input Transformer")
-            | RunnablePassthrough.assign(
-                **{
+            | RunnableAssign(
+                {
                     # Selects the value to use to retrieve documents from the store
                     self.__param_context: self.__retrieval_query_builder
                     # Retrieves the documents
                     | self.wrap(self.retriever, "Retriever")
                     # Formats the documents into a single string
                     | self.wrap(self.document_formatter, "Document Formatter")
-                }
+                }  # type: ignore
             )
             | self.wrap(self.additional_values_injector, "Additional Values Injector")
             | self.wrap(self.prompt_template, "Prompt Template")
@@ -862,21 +861,21 @@ class ChainFactory(Generic[ChainOutputVar]):
         chain = (
             self.wrap(self.input_transformer, "Input Transformer")
             # Retrieves the documents and keep them in the source_documents_key
-            | RunnablePassthrough.assign(
-                **{
+            | RunnableAssign(
+                {
                     # Selects the value to use to retrieve documents from the store
                     self.__source_documents_key: self.__retrieval_query_builder
                     # Retrieves the documents
                     | self.wrap(self.retriever, "Retriever")
-                }
+                }  # type: ignore
             )
             # Builds the answer value by executing the RAG
-            | RunnablePassthrough.assign(
-                **{
+            | RunnableAssign(
+                {
                     self.__answer_key: (
                         # Builds the context variable content
-                        RunnablePassthrough.assign(
-                            **{
+                        RunnableAssign(
+                            {
                                 self.__param_context: (
                                     # Selects the value to use to retrieve documents from the store
                                     (lambda x: x.get(self.__source_documents_key, []))
@@ -885,7 +884,7 @@ class ChainFactory(Generic[ChainOutputVar]):
                                         self.document_formatter, "Document Formatter"
                                     )
                                 ),
-                            }
+                            }  # type: ignore
                         )
                         | self.wrap(
                             self.additional_values_injector,
