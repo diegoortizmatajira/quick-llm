@@ -671,6 +671,17 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__logger.debug("Setting custom retrieval query builder function.")
         return self
 
+    def use_text_splitter(self, text_splitter: TextSplitter) -> Self:
+        """
+        Sets the text splitter instance.
+
+        :param text_splitter: An instance of TextSplitter to set.
+        :return: The ChainFactory instance for method chaining.
+        """
+        self.__text_splitter = text_splitter
+        self.__logger.debug("Setting text splitter: %s", self.__text_splitter)
+        return self
+
     def use_default_token_splitter(
         self, chunk_size: int = 500, chunk_overlap: int = 50
     ) -> Self:
@@ -749,6 +760,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__retriever = vector_store.as_retriever()
         return self
 
+    @overload
     def use_retriever(self, retriever: RetrieverLike) -> Self:
         """
         Sets the retriever instance.
@@ -756,7 +768,39 @@ class ChainFactory(Generic[ChainOutputVar]):
         :param retriever: An instance of RetrieverLike to set.
         :return: The ChainFactory instance for method chaining.
         """
+
+    @overload
+    def use_retriever(
+        self,
+        retriever: Callable[[LanguageModelLike, RetrieverLike | None], RetrieverLike],
+    ) -> Self:
+        """
+        Sets the retriever instance using a callable builder.
+        :param retriever: A callable that takes a LanguageModelLike instance and an optional existing retriever
+        to produce a new RetrieverLike instance.
+        :return: The ChainFactory instance for method chaining.
+        """
+
+    def use_retriever(
+        self,
+        retriever: RetrieverLike
+        | Callable[[LanguageModelLike, RetrieverLike | None], RetrieverLike]
+        | None = None,
+    ) -> Self:
+        """
+        Sets a custom retriever instance or builds one using the provided callable.
+
+        This method ensures retrieval-augmented generation (RAG) is enabled and assigns the retriever
+        provided. If the retriever is given as a callable, it evaluates the callable with the current
+        language model and the existing retriever (if any) to construct a new retriever.
+
+        :param retriever: Either a `RetrieverLike` instance or a callable that takes a `LanguageModelLike`
+        instance and an optional existing retriever to produce a new one.
+        :return: The ChainFactory instance for method chaining.
+        """
         self.use_rag(True)
+        if isinstance(retriever, Callable):
+            retriever = retriever(self.language_model, self.__retriever)
         self.__retriever = retriever
         self.__logger.debug("Setting retriever: %s", self.__retriever)
         return self
