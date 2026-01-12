@@ -2,6 +2,7 @@
 
 from typing import cast
 
+from langchain_core.retrievers import RetrieverLike
 import pytest
 from langchain_core.documents import Document
 from langchain_core.embeddings import FakeEmbeddings
@@ -36,6 +37,7 @@ TEST_FAKE_DOCUMENT2 = Document(
     page_content="This is another fake document with no metadata",
 )
 TEST_DOCUMENT_LIST = [TEST_FAKE_DOCUMENT1, TEST_FAKE_DOCUMENT2]
+TEST_EXPECTED_CUSTOM_RETRIEVER_RESULT = [TEST_FAKE_DOCUMENT2]
 
 
 class AnswerOutput(BaseModel):
@@ -508,3 +510,21 @@ def test_rag_json_stream(input_value: ChainInputType):
         assert response[18] == {"what": "something", "when": "tomorro"}
         assert response[19] == {"what": "something", "when": "tomorrow"}
         assert response[20] == {"what": "something", "when": "tomorrow", "who": ""}
+
+
+@pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
+def test_use_retriever(input_value: ChainInputType):
+    """Test the factory with a string output"""
+    models = __get_test_models(TEST_EXPECTED_RESPONSE)
+    mock_retriever: RetrieverLike = RunnableLambda(
+        lambda _: TEST_EXPECTED_CUSTOM_RETRIEVER_RESULT
+    )
+    for model in models:
+        factory = (
+            ChainFactory().use(rag_setup_visitor(model)).use_retriever(mock_retriever)
+        )
+        retrieve_result = factory.retriever.invoke("test query")
+        assert retrieve_result == TEST_EXPECTED_CUSTOM_RETRIEVER_RESULT
+        chain = factory.build()
+        response = chain.invoke(input_value)
+        assert response == TEST_EXPECTED_RESPONSE

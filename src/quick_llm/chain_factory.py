@@ -819,7 +819,7 @@ class ChainFactory(Generic[ChainOutputVar]):
 
         :return: A Runnable instance representing the complete chain.
         """
-        return (
+        chain = (
             self.wrap(self.input_transformer, "Input Transformer")
             | self.wrap(self.additional_values_injector, "Additional Values Injector")
             | self.wrap(self.prompt_template, "Prompt Template")
@@ -827,9 +827,11 @@ class ChainFactory(Generic[ChainOutputVar]):
             | self.wrap(self.output_cleaner, "Output Cleaner")
             | self.wrap(self.output_transformer, "Output Transformer")
         )
+        self.__logger.debug("Built chain without RAG components: %s", chain)
+        return chain
 
     def __build_with_rag(self) -> Runnable[ChainInputType, ChainOutputVar]:
-        return (
+        chain = (
             self.wrap(self.input_transformer, "Input Transformer")
             | RunnableAssign(
                 {
@@ -847,6 +849,8 @@ class ChainFactory(Generic[ChainOutputVar]):
             | self.wrap(self.output_cleaner, "Output Cleaner")
             | self.wrap(self.output_transformer, "Output Transformer")
         )
+        self.__logger.debug("Built chain with RAG components: %s", chain)
+        return chain
 
     def __build_with_rag_with_sources(
         self,
@@ -903,6 +907,7 @@ class ChainFactory(Generic[ChainOutputVar]):
             chain = chain | self.wrap(
                 self.final_answer_formatter, "Final Answer Formatter"
             )
+        self.__logger.debug("Built chain with RAG components and document references: %s", chain)
         # INFO: uses a cast to avoid LSP error about incompatible types
         return cast(Runnable[ChainInputType, ChainOutputVar], chain)
 
@@ -919,6 +924,7 @@ class ChainFactory(Generic[ChainOutputVar]):
 
         :return: A RunnableSerializable instance representing the complete chain.
         """
+        self.__logger.info("Building chain")
         if self.__use_rag:
             if self.__rag_return_sources:
                 return self.__build_with_rag_with_sources()
