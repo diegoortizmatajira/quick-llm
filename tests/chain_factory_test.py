@@ -1,8 +1,8 @@
 """Tests for the ChainFactory class"""
 
+import json
 from typing import cast
 
-from langchain_core.retrievers import RetrieverLike
 import pytest
 from langchain_core.documents import Document
 from langchain_core.embeddings import FakeEmbeddings
@@ -14,6 +14,7 @@ from langchain_core.language_models import (
     LanguageModelOutput,
 )
 from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.retrievers import RetrieverLike
 from langchain_core.runnables import RunnableLambda
 from langchain_core.vectorstores import InMemoryVectorStore
 from pydantic import BaseModel, Field
@@ -23,6 +24,14 @@ from quick_llm.type_definitions import ChainInputType
 
 TEST_INPUT = "Test input"
 TEST_EXPECTED_RESPONSE = "This is a sample response."
+TEST_JSON_EXPECTED_RESPONSE = json.dumps(
+    {
+        "what": "something",
+        "when": "tomorrow",
+        "who": "someone",
+        "general": "something else",
+    }
+)
 TEST_INPUT_SAMPLES: list[ChainInputType] = [
     {"input": TEST_INPUT},
     TEST_INPUT,
@@ -68,133 +77,126 @@ def __get_test_streaming_models(expected_response: str) -> list[LanguageModelLik
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_string(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+def test_string(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a string output"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = (
-            ChainFactory()
-            .use_prompt_template("Sample Prompt {input}")
-            .use_language_model(model)
-            .use_detailed_logging()
-        )
-        chain = factory.build()
-        response = chain.invoke(input_value)
-        assert response == TEST_EXPECTED_RESPONSE
+    factory = (
+        ChainFactory()
+        .use_prompt_template("Sample Prompt {input}")
+        .use_language_model(model)
+        .use_detailed_logging()
+    )
+    chain = factory.build()
+    response = chain.invoke(input_value)
+    assert response == TEST_EXPECTED_RESPONSE
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_string_async(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+async def test_string_async(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a simple text chain"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = (
-            ChainFactory()
-            .use_prompt_template("Sample Prompt {input}")
-            .use_language_model(model)
-        )
-        chain = factory.build()
-        response = await chain.ainvoke(input_value)
-        assert response == TEST_EXPECTED_RESPONSE
+    factory = (
+        ChainFactory()
+        .use_prompt_template("Sample Prompt {input}")
+        .use_language_model(model)
+    )
+    chain = factory.build()
+    response = await chain.ainvoke(input_value)
+    assert response == TEST_EXPECTED_RESPONSE
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_string_stream(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_streaming_models(TEST_EXPECTED_RESPONSE))
+def test_string_stream(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a simple text chain using streaming on a chat model and a non-chat model"""
-    models = __get_test_streaming_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = (
-            ChainFactory()
-            .use_prompt_template("Sample Prompt {input}")
-            .use_language_model(model)
-        )
-        chain = factory.build()
-        # Verify streaming response to ensure no chunks are equal to the full response
-        stream = [
-            item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
-        ]
-        assert len(stream) > 0
-        # Reconstruct full response from stream and verify correctness
-        response = "".join(stream)
-        assert response == TEST_EXPECTED_RESPONSE
+    factory = (
+        ChainFactory()
+        .use_prompt_template("Sample Prompt {input}")
+        .use_language_model(model)
+    )
+    chain = factory.build()
+    # Verify streaming response to ensure no chunks are equal to the full response
+    stream = [
+        item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
+    ]
+    assert len(stream) > 0
+    # Reconstruct full response from stream and verify correctness
+    response = "".join(stream)
+    assert response == TEST_EXPECTED_RESPONSE
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_json(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+def test_json(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a json output"""
-    mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
-    models = __get_test_models(mocked_response)
-    for model in models:
-        factory = (
-            ChainFactory.for_json_model(AnswerOutput)
-            .use_prompt_template("Sample Prompt {input}")
-            .use_language_model(model)
-            .use_detailed_logging()
-        )
-        chain = factory.build()
-        response = chain.invoke(input_value)
-        # Checks that the response is a populated dictionary
-        assert isinstance(response, dict)
-        assert response.get("what", "nothing") == "something"
+    factory = (
+        ChainFactory.for_json_model(AnswerOutput)
+        .use_prompt_template("Sample Prompt {input}")
+        .use_language_model(model)
+        .use_detailed_logging()
+    )
+    chain = factory.build()
+    response = chain.invoke(input_value)
+    # Checks that the response is a populated dictionary
+    assert isinstance(response, dict)
+    assert response.get("what", "nothing") == "something"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_json_async(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+async def test_json_async(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a json output"""
-    mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
-    models = __get_test_models(mocked_response)
-    for model in models:
-        factory = (
-            ChainFactory.for_json_model(AnswerOutput)
-            .use_prompt_template("Sample Prompt {input}")
-            .use_language_model(model)
-        )
-        chain = factory.build()
-        response = await chain.ainvoke(input_value)
-        # Checks that the response is a populated dictionary
-        assert isinstance(response, dict)
-        assert response.get("what", "nothing") == "something"
+    factory = (
+        ChainFactory.for_json_model(AnswerOutput)
+        .use_prompt_template("Sample Prompt {input}")
+        .use_language_model(model)
+    )
+    chain = factory.build()
+    response = await chain.ainvoke(input_value)
+    # Checks that the response is a populated dictionary
+    assert isinstance(response, dict)
+    assert response.get("what", "nothing") == "something"
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_json_stream(input_value: ChainInputType):
+@pytest.mark.parametrize(
+    "model", __get_test_streaming_models(TEST_JSON_EXPECTED_RESPONSE)
+)
+def test_json_stream(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a json output"""
-    mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
-    models = __get_test_streaming_models(mocked_response)
-    for model in models:
-        factory = (
-            ChainFactory.for_json_model(AnswerOutput)
-            .use_prompt_template("Sample Prompt {input}")
-            .use_language_model(model)
-        )
-        chain = factory.build()
-        stream = chain.stream(input_value)
-        response = list(stream)
-        assert len(response) > 0
-        # INFO: Not a very practical output.
-        assert response[0] == {}
-        assert response[1] == {"what": ""}
-        assert response[2] == {"what": "s"}
-        assert response[3] == {"what": "so"}
-        assert response[4] == {"what": "som"}
-        assert response[5] == {"what": "some"}
-        assert response[6] == {"what": "somet"}
-        assert response[7] == {"what": "someth"}
-        assert response[8] == {"what": "somethi"}
-        assert response[9] == {"what": "somethin"}
-        assert response[10] == {"what": "something"}
-        assert response[11] == {"what": "something", "when": ""}
-        assert response[12] == {"what": "something", "when": "t"}
-        assert response[13] == {"what": "something", "when": "to"}
-        assert response[14] == {"what": "something", "when": "tom"}
-        assert response[15] == {"what": "something", "when": "tomo"}
-        assert response[16] == {"what": "something", "when": "tomor"}
-        assert response[17] == {"what": "something", "when": "tomorr"}
-        assert response[18] == {"what": "something", "when": "tomorro"}
-        assert response[19] == {"what": "something", "when": "tomorrow"}
-        assert response[20] == {"what": "something", "when": "tomorrow", "who": ""}
+    factory = (
+        ChainFactory.for_json_model(AnswerOutput)
+        .use_prompt_template("Sample Prompt {input}")
+        .use_language_model(model)
+    )
+    chain = factory.build()
+    stream = chain.stream(input_value)
+    response = list(stream)
+    assert len(response) > 0
+    # INFO: Not a very practical output.
+    assert response[0] == {}
+    assert response[1] == {"what": ""}
+    assert response[2] == {"what": "s"}
+    assert response[3] == {"what": "so"}
+    assert response[4] == {"what": "som"}
+    assert response[5] == {"what": "some"}
+    assert response[6] == {"what": "somet"}
+    assert response[7] == {"what": "someth"}
+    assert response[8] == {"what": "somethi"}
+    assert response[9] == {"what": "somethin"}
+    assert response[10] == {"what": "something"}
+    assert response[11] == {"what": "something", "when": ""}
+    assert response[12] == {"what": "something", "when": "t"}
+    assert response[13] == {"what": "something", "when": "to"}
+    assert response[14] == {"what": "something", "when": "tom"}
+    assert response[15] == {"what": "something", "when": "tomo"}
+    assert response[16] == {"what": "something", "when": "tomor"}
+    assert response[17] == {"what": "something", "when": "tomorr"}
+    assert response[18] == {"what": "something", "when": "tomorro"}
+    assert response[19] == {"what": "something", "when": "tomorrow"}
+    assert response[20] == {"what": "something", "when": "tomorrow", "who": ""}
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
@@ -273,19 +275,15 @@ def rag_setup_visitor(model: LanguageModelLike):
     def visitor(factory: ChainFactory):
         """Configures a ChainFactory for RAG testing"""
 
-        def retriever_func(_: str) -> list[Document]:
-            return [TEST_FAKE_DOCUMENT1, TEST_FAKE_DOCUMENT2]
-
         mock_embeddings = FakeEmbeddings(size=3)
         mock_vectorstore = InMemoryVectorStore(mock_embeddings)
-        mock_retriever = RunnableLambda(retriever_func)
+        mock_vectorstore.add_documents(TEST_DOCUMENT_LIST)
         _ = (
             factory.use_prompt_template("Sample Prompt {input} {context}")
             .use_language_model(model)
             .use_default_text_splitter()
             .use_embeddings(mock_embeddings)
             .use_vector_store(mock_vectorstore)
-            .use_retriever(mock_retriever)
             .use_detailed_logging()
         )
 
@@ -293,223 +291,214 @@ def rag_setup_visitor(model: LanguageModelLike):
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_string(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+def test_rag_string(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a string output"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = ChainFactory().use(rag_setup_visitor(model))
-        chain = factory.build()
-        response = chain.invoke(input_value)
-        assert response == TEST_EXPECTED_RESPONSE
+    factory = ChainFactory().use(rag_setup_visitor(model))
+    chain = factory.build()
+    response = chain.invoke(input_value)
+    assert response == TEST_EXPECTED_RESPONSE
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_rag_string_async(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+async def test_rag_string_async(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a string output"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = ChainFactory().use(rag_setup_visitor(model))
-        chain = factory.build()
-        response = await chain.ainvoke(input_value)
-        assert response == TEST_EXPECTED_RESPONSE
+    factory = ChainFactory().use(rag_setup_visitor(model))
+    chain = factory.build()
+    response = await chain.ainvoke(input_value)
+    assert response == TEST_EXPECTED_RESPONSE
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_string_stream(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_streaming_models(TEST_EXPECTED_RESPONSE))
+def test_rag_string_stream(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a simple text chain using streaming on a chat model and a non-chat model"""
-    models = __get_test_streaming_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = ChainFactory().use(rag_setup_visitor(model))
-        chain = factory.build()
-        # Verify streaming response to ensure no chunks are equal to the full response
-        stream = [
-            item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
-        ]
-        assert len(stream) > 0
-        # Reconstruct full response from stream and verify correctness
-        response = "".join(stream)
-        assert response == TEST_EXPECTED_RESPONSE
+    factory = ChainFactory().use(rag_setup_visitor(model))
+    chain = factory.build()
+    # Verify streaming response to ensure no chunks are equal to the full response
+    stream = [
+        item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
+    ]
+    assert len(stream) > 0
+    # Reconstruct full response from stream and verify correctness
+    response = "".join(stream)
+    assert response == TEST_EXPECTED_RESPONSE
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_string_with_documents(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+def test_rag_string_with_documents(
+    input_value: ChainInputType, model: LanguageModelLike
+):
     """Test the factory with a string output"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = (
-            ChainFactory()
-            .use(rag_setup_visitor(model))
-            .use_rag_returning_sources(True, True)
-        )
-        chain = factory.build()
-        response = chain.invoke(input_value)
-        assert isinstance(response, str)
-        assert response.startswith(TEST_EXPECTED_RESPONSE)
-        # Length should be greater than expected response due to appended sources
-        assert len(response) > len(TEST_EXPECTED_RESPONSE)
+    factory = (
+        ChainFactory()
+        .use(rag_setup_visitor(model))
+        .use_rag_returning_sources(True, True)
+    )
+    chain = factory.build()
+    response = chain.invoke(input_value)
+    assert isinstance(response, str)
+    assert response.startswith(TEST_EXPECTED_RESPONSE)
+    # Length should be greater than expected response due to appended sources
+    assert len(response) > len(TEST_EXPECTED_RESPONSE)
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_rag_string_with_documents_async(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+async def test_rag_string_with_documents_async(
+    input_value: ChainInputType, model: LanguageModelLike
+):
     """Test the factory with a string output"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = (
-            ChainFactory()
-            .use(rag_setup_visitor(model))
-            .use_rag_returning_sources(True, True)
-        )
-        chain = factory.build()
-        response = await chain.ainvoke(input_value)
-        assert isinstance(response, str)
-        assert response.startswith(TEST_EXPECTED_RESPONSE)
-        # Length should be greater than expected response due to appended sources
-        assert len(response) > len(TEST_EXPECTED_RESPONSE)
+    factory = (
+        ChainFactory()
+        .use(rag_setup_visitor(model))
+        .use_rag_returning_sources(True, True)
+    )
+    chain = factory.build()
+    response = await chain.ainvoke(input_value)
+    assert isinstance(response, str)
+    assert response.startswith(TEST_EXPECTED_RESPONSE)
+    # Length should be greater than expected response due to appended sources
+    assert len(response) > len(TEST_EXPECTED_RESPONSE)
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_string_with_documents_stream(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_streaming_models(TEST_EXPECTED_RESPONSE))
+def test_rag_string_with_documents_stream(
+    input_value: ChainInputType, model: LanguageModelLike
+):
     """Test the factory with a simple text chain using streaming on a chat model and a non-chat model"""
-    models = __get_test_streaming_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = (
-            ChainFactory()
-            .use(rag_setup_visitor(model))
-            .use_rag_returning_sources(True, True)
-        )
-        chain = factory.build()
-        # Verify streaming response to ensure no chunks are equal to the full response
-        stream = [
-            item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
-        ]
-        assert len(stream) > 0
-        # Reconstruct full response from stream and verify correctness
-        response = "".join(stream)
-        assert response.startswith(TEST_EXPECTED_RESPONSE)
-        # Length should be greater than expected response due to appended sources
-        assert len(response) > len(TEST_EXPECTED_RESPONSE)
+    factory = (
+        ChainFactory()
+        .use(rag_setup_visitor(model))
+        .use_rag_returning_sources(True, True)
+    )
+    chain = factory.build()
+    # Verify streaming response to ensure no chunks are equal to the full response
+    stream = [
+        item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
+    ]
+    assert len(stream) > 0
+    # Reconstruct full response from stream and verify correctness
+    response = "".join(stream)
+    assert response.startswith(TEST_EXPECTED_RESPONSE)
+    # Length should be greater than expected response due to appended sources
+    assert len(response) > len(TEST_EXPECTED_RESPONSE)
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_dict_with_documents(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+def test_rag_dict_with_documents(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a string output"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = ChainFactory.for_rag_with_sources().use(rag_setup_visitor(model))
-        chain = factory.build()
-        response = chain.invoke(input_value)
-        assert isinstance(response, dict)
-        assert response.get(factory.answer_key, "None") == TEST_EXPECTED_RESPONSE
-        referenced_docs = cast(list, response.get(factory.document_references_key, []))
-        assert len(referenced_docs) == len(TEST_DOCUMENT_LIST)
+    factory = ChainFactory.for_rag_with_sources().use(rag_setup_visitor(model))
+    chain = factory.build()
+    response = chain.invoke(input_value)
+    assert isinstance(response, dict)
+    assert response.get(factory.answer_key, "None") == TEST_EXPECTED_RESPONSE
+    referenced_docs = cast(list, response.get(factory.document_references_key, []))
+    assert len(referenced_docs) == len(TEST_DOCUMENT_LIST)
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_rag_dict_with_documents_async(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_EXPECTED_RESPONSE))
+async def test_rag_dict_with_documents_async(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a string output"""
-    models = __get_test_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = ChainFactory.for_rag_with_sources().use(rag_setup_visitor(model))
-        chain = factory.build()
-        response = await chain.ainvoke(input_value)
-        assert isinstance(response, dict)
-        assert response.get(factory.answer_key, "None") == TEST_EXPECTED_RESPONSE
-        referenced_docs = cast(list, response.get(factory.document_references_key, []))
-        assert len(referenced_docs) == len(TEST_DOCUMENT_LIST)
+    factory = ChainFactory.for_rag_with_sources().use(rag_setup_visitor(model))
+    chain = factory.build()
+    response = await chain.ainvoke(input_value)
+    assert isinstance(response, dict)
+    assert response.get(factory.answer_key, "None") == TEST_EXPECTED_RESPONSE
+    referenced_docs = cast(list, response.get(factory.document_references_key, []))
+    assert len(referenced_docs) == len(TEST_DOCUMENT_LIST)
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_dict_with_documents_stream(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_streaming_models(TEST_EXPECTED_RESPONSE))
+def test_rag_dict_with_documents_stream(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a simple text chain using streaming on a chat model and a non-chat model"""
-    models = __get_test_streaming_models(TEST_EXPECTED_RESPONSE)
-    for model in models:
-        factory = ChainFactory.for_rag_with_sources().use(rag_setup_visitor(model))
-        chain = factory.build()
-        # Verify streaming response to ensure no chunks are equal to the full response
-        stream = [
-            item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
-        ]
-        assert len(stream) > 0
-        # Reconstruct full response from stream and verify correctness
-        text_response = ""
-        referenced_docs = []
-        for chunk in stream:
-            text_response += str(chunk.get(factory.answer_key, ""))
-            if factory.document_references_key in chunk:
-                referenced_docs = cast(list, chunk[factory.document_references_key])
+    factory = ChainFactory.for_rag_with_sources().use(rag_setup_visitor(model))
+    chain = factory.build()
+    # Verify streaming response to ensure no chunks are equal to the full response
+    stream = [
+        item for item in chain.stream(input_value) if item != TEST_EXPECTED_RESPONSE
+    ]
+    assert len(stream) > 0
+    # Reconstruct full response from stream and verify correctness
+    text_response = ""
+    referenced_docs = []
+    for chunk in stream:
+        text_response += str(chunk.get(factory.answer_key, ""))
+        if factory.document_references_key in chunk:
+            referenced_docs = cast(list, chunk[factory.document_references_key])
 
-        assert text_response == TEST_EXPECTED_RESPONSE
-        assert len(referenced_docs) == len(TEST_DOCUMENT_LIST)
+    assert text_response == TEST_EXPECTED_RESPONSE
+    assert len(referenced_docs) == len(TEST_DOCUMENT_LIST)
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_json(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+def test_rag_json(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a json output"""
-    mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
-    models = __get_test_models(mocked_response)
-    for model in models:
-        factory = ChainFactory.for_json_model(AnswerOutput).use(
-            rag_setup_visitor(model)
-        )
-        chain = factory.build()
-        response = chain.invoke(input_value)
-        # Checks that the response is a populated dictionary
-        assert isinstance(response, dict)
-        assert response.get("what", "nothing") == "something"
+    factory = ChainFactory.for_json_model(AnswerOutput).use(
+        rag_setup_visitor(model)
+    )
+    chain = factory.build()
+    response = chain.invoke(input_value)
+    # Checks that the response is a populated dictionary
+    assert isinstance(response, dict)
+    assert response.get("what", "nothing") == "something"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-async def test_rag_json_async(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+async def test_rag_json_async(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a json output"""
-    mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
-    models = __get_test_models(mocked_response)
-    for model in models:
-        factory = ChainFactory.for_json_model(AnswerOutput).use(
-            rag_setup_visitor(model)
-        )
-        chain = factory.build()
-        response = await chain.ainvoke(input_value)
-        # Checks that the response is a populated dictionary
-        assert isinstance(response, dict)
-        assert response.get("what", "nothing") == "something"
+    factory = ChainFactory.for_json_model(AnswerOutput).use(
+        rag_setup_visitor(model)
+    )
+    chain = factory.build()
+    response = await chain.ainvoke(input_value)
+    # Checks that the response is a populated dictionary
+    assert isinstance(response, dict)
+    assert response.get("what", "nothing") == "something"
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-def test_rag_json_stream(input_value: ChainInputType):
+@pytest.mark.parametrize("model", __get_test_streaming_models(TEST_JSON_EXPECTED_RESPONSE))
+def test_rag_json_stream(input_value: ChainInputType, model: LanguageModelLike):
     """Test the factory with a json output"""
-    mocked_response = """{"what": "something", "when":"tomorrow", "who": "someone", "general": "something else"}"""
-    models = __get_test_streaming_models(mocked_response)
-    for model in models:
-        factory = ChainFactory.for_json_model(AnswerOutput).use(
-            rag_setup_visitor(model)
-        )
-        chain = factory.build()
-        stream = chain.stream(input_value)
-        response = list(stream)
-        assert len(response) > 0
-        # INFO: Not a very practical output.
-        assert response[0] == {}
-        assert response[1] == {"what": ""}
-        assert response[2] == {"what": "s"}
-        assert response[3] == {"what": "so"}
-        assert response[4] == {"what": "som"}
-        assert response[5] == {"what": "some"}
-        assert response[6] == {"what": "somet"}
-        assert response[7] == {"what": "someth"}
-        assert response[8] == {"what": "somethi"}
-        assert response[9] == {"what": "somethin"}
-        assert response[10] == {"what": "something"}
-        assert response[11] == {"what": "something", "when": ""}
-        assert response[12] == {"what": "something", "when": "t"}
-        assert response[13] == {"what": "something", "when": "to"}
-        assert response[14] == {"what": "something", "when": "tom"}
-        assert response[15] == {"what": "something", "when": "tomo"}
-        assert response[16] == {"what": "something", "when": "tomor"}
-        assert response[17] == {"what": "something", "when": "tomorr"}
-        assert response[18] == {"what": "something", "when": "tomorro"}
-        assert response[19] == {"what": "something", "when": "tomorrow"}
-        assert response[20] == {"what": "something", "when": "tomorrow", "who": ""}
+    factory = ChainFactory.for_json_model(AnswerOutput).use(
+        rag_setup_visitor(model)
+    )
+    chain = factory.build()
+    stream = chain.stream(input_value)
+    response = list(stream)
+    assert len(response) > 0
+    # INFO: Not a very practical output.
+    assert response[0] == {}
+    assert response[1] == {"what": ""}
+    assert response[2] == {"what": "s"}
+    assert response[3] == {"what": "so"}
+    assert response[4] == {"what": "som"}
+    assert response[5] == {"what": "some"}
+    assert response[6] == {"what": "somet"}
+    assert response[7] == {"what": "someth"}
+    assert response[8] == {"what": "somethi"}
+    assert response[9] == {"what": "somethin"}
+    assert response[10] == {"what": "something"}
+    assert response[11] == {"what": "something", "when": ""}
+    assert response[12] == {"what": "something", "when": "t"}
+    assert response[13] == {"what": "something", "when": "to"}
+    assert response[14] == {"what": "something", "when": "tom"}
+    assert response[15] == {"what": "something", "when": "tomo"}
+    assert response[16] == {"what": "something", "when": "tomor"}
+    assert response[17] == {"what": "something", "when": "tomorr"}
+    assert response[18] == {"what": "something", "when": "tomorro"}
+    assert response[19] == {"what": "something", "when": "tomorrow"}
+    assert response[20] == {"what": "something", "when": "tomorrow", "who": ""}
 
 
 @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
