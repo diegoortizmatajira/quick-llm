@@ -8,12 +8,12 @@ from langchain_core.messages import BaseMessage
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
-from quick_llm.chain_chat_provider import (
+from quick_llm.chat import (
     ChainChatProvider,
     ChatInputTransformer,
     ChatOutputTransformer,
 )
-from quick_llm.type_definitions import ChainInputType, ChainOutputVar
+from quick_llm import ChainInputType, ChainOutputVar
 
 
 class GenerateRequest[T](BaseModel):
@@ -293,7 +293,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
         to the configured chat provider and returning the generated response.
 
         Args:
-            request: The chat request containing the list of messages exchanged 
+            request: The chat request containing the list of messages exchanged
                      between the user and the AI.
 
         Returns:

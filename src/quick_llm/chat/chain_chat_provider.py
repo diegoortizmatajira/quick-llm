@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts.chat import MessageLike
 from langchain_core.runnables import Runnable
 
-from quick_llm.type_definitions import ChainInputType
+from quick_llm import ChainInputType
 
 
 ChatInputType = MessageLike | Iterable[MessageLike]

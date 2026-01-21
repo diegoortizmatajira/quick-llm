@@ -4,7 +4,7 @@ from typing import Any, AsyncIterator, Iterator, Optional, cast, override
 from langchain_core.runnables import RunnableConfig, RunnableGenerator
 from pydantic import BaseModel
 
-from quick_llm.type_definitions import ChainInputType
+from quick_llm import ChainInputType
 
 
 class PromptInputParser(RunnableGenerator[ChainInputType, dict]):

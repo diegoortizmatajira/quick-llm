@@ -3,7 +3,7 @@ from langchain_core.language_models import FakeListChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-from quick_llm.chain_chat_provider import ChainChatProvider, ChatInputType
+from quick_llm.chat import ChainChatProvider, ChatInputType
 from quick_llm.chain_factory import ChainFactory
 
 TEST_INPUT_1 = "Hello, how are you?"

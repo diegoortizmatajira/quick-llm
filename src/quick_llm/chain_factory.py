@@ -37,8 +37,7 @@ from langchain_text_splitters import (
 )
 from pydantic import BaseModel
 
-from quick_llm.prompt_input_parser import PromptInputParser
-from quick_llm.type_definitions import ChainInputType, ChainOutputVar
+from quick_llm import ChainInputType, ChainOutputVar, PromptInputParser
 
 
 # pylint: disable=too-many-instance-attributes disable=too-many-public-methods
@@ -907,7 +906,9 @@ class ChainFactory(Generic[ChainOutputVar]):
             chain = chain | self.wrap(
                 self.final_answer_formatter, "Final Answer Formatter"
             )
-        self.__logger.debug("Built chain with RAG components and document references: %s", chain)
+        self.__logger.debug(
+            "Built chain with RAG components and document references: %s", chain
+        )
         # INFO: uses a cast to avoid LSP error about incompatible types
         return cast(Runnable[ChainInputType, ChainOutputVar], chain)
 
