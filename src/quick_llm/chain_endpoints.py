@@ -48,6 +48,19 @@ class ChatResponse[MessageTypeVar: BaseMessage](BaseModel):
 
 
 class ChainEndpoints(Generic[ChainOutputVar]):
+    """
+    A class representing endpoints for chains in a FastAPI application.
+
+    This class facilitates the creation and management of API endpoints linked
+    to `Runnable` chain functions. It provides the ability to define chat and generate
+    endpoints, including their streaming counterparts, and integrates them into
+    the FastAPI app.
+
+    Attributes:
+        chain: A `Runnable` instance or a callable for initializing the chain.
+        app: The FastAPI app instance.
+    """
+
     def __init__(
         self,
         app: FastAPI,
@@ -57,14 +70,14 @@ class ChainEndpoints(Generic[ChainOutputVar]):
         self.__chain = chain
         self.__endpoints_registered = False
         self.__chat_provider: ChainChatProvider | None = None
-        self.router = APIRouter()
-        app.include_router(self.router)
+        self.__app = app
+        self.__router = APIRouter()
 
     @overload
     def with_chat_endpoint(
         self,
         *,
-        endpoint: str = "api/chat",
+        endpoint: str | None = "api/chat",
         stream_endpoint: str | None = None,
         input_transformer: ChatInputTransformer | None = None,
         output_transformer: ChatOutputTransformer | None = None,
@@ -89,7 +102,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     def with_chat_endpoint(
         self,
         *,
-        endpoint: str = "api/chat",
+        endpoint: str | None = "api/chat",
         stream_endpoint: str | None = None,
         chat_provider: ChainChatProvider | None = None,
     ) -> Self:
@@ -111,7 +124,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     def with_chat_endpoint(
         self,
         *,
-        endpoint: str = "api/chat",
+        endpoint: str | None = "api/chat",
         stream_endpoint: str | None = None,
         chat_provider: ChainChatProvider | None = None,
         input_transformer: ChatInputTransformer | None = None,
@@ -133,21 +146,24 @@ class ChainEndpoints(Generic[ChainOutputVar]):
         Returns:
             The ChainEndpoints instance with the chat endpoint configured.
         """
+        if endpoint == stream_endpoint:
+            raise ValueError("Endpoint and stream_endpoint cannot be the same.")
+
         chat_endpoints_registered = False
         if endpoint:
-            # self.router.add_api_route(
-            #     endpoint,
-            #     chat_provider.serve_chat,
-            #     methods=["POST"],
-            # )
+            self.__router.add_api_route(
+                endpoint,
+                self.serve_chat,
+                methods=["POST"],
+            )
             chat_endpoints_registered = True
         if stream_endpoint:
-            # self.router.add_api_route(
-            #     stream_endpoint,
-            #     chat_provider.serve_chat_streaming,
-            #     methods=["POST"],
-            #     response_class=StreamingResponse,
-            # )
+            self.__router.add_api_route(
+                stream_endpoint,
+                self.serve_chat_streaming,
+                methods=["POST"],
+                response_class=StreamingResponse,
+            )
             chat_endpoints_registered = True
         self.__endpoints_registered = (
             self.__endpoints_registered or chat_endpoints_registered
@@ -170,14 +186,18 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     ) -> Self:
         """Add a generate endpoint to the chain.
 
+        This method allows the configuration of an endpoint for generating
+        results from the chain. It supports both standard and streaming endpoints.
+
         Args:
-            endpoint: The endpoint path.
+            endpoint: The endpoint path for the generate functionality (default: "api/generate").
+            stream_endpoint: The optional endpoint path for streaming generate responses.
 
         Returns:
-            The ChainEndpoints instance with the generate endpoint added.
+            The ChainEndpoints instance with the generate endpoint configured.
         """
         if endpoint:
-            self.router.add_api_route(
+            self.__router.add_api_route(
                 endpoint,
                 self.serve_generate,
                 methods=["POST"],
@@ -185,7 +205,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
             )
             self.__endpoints_registered = True
         if stream_endpoint:
-            self.router.add_api_route(
+            self.__router.add_api_route(
                 stream_endpoint,
                 self.serve_generate_streaming,
                 methods=["POST"],
@@ -208,6 +228,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
         if not self.__endpoints_registered:
             # If no endpoints are defined, add default ones.
             self.with_defaults()
+        self.__app.include_router(self.__router)
 
     @property
     def chain(self) -> Runnable[ChainInputType, ChainOutputVar]:
@@ -268,16 +289,49 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     def serve_chat(self, request: ChatRequest) -> ChatResponse[BaseMessage]:
         """Serve a chat request.
 
+        This method processes a chat request by sending the received messages
+        to the configured chat provider and returning the generated response.
+
+        Args:
+            request: The chat request containing the list of messages exchanged 
+                     between the user and the AI.
+
+        Returns:
+            A ChatResponse object containing the generated message and its creation timestamp.
+        """
+        if not self.__chat_provider:
+            raise ValueError("Chat provider is not configured.")
+        full_message = self.__chat_provider.send(request.messages)
+        return ChatResponse(
+            message=full_message,
+            created_at=datetime.now(timezone.utc),
+        )
+
+    def serve_chat_streaming(self, request: ChatRequest) -> StreamingResponse:
+        """Serve a chat request with a streaming response.
+
+        This method handles chat requests to generate output in a streaming fashion.
+        It converts the responses from the chat provider into JSONL (JSON Lines) format
+        and streams them as a response.
+
         Args:
             request: The chat request containing the messages.
 
         Returns:
-            The chat response containing the generated message.
+            A StreamingResponse where each item is a JSON-serialized ChatResponse object,
+            streamed to the client.
         """
         if not self.__chat_provider:
             raise ValueError("Chat provider is not configured.")
-        message = self.__chat_provider.send(request.messages)
-        return ChatResponse(
-            message=message,
-            created_at=datetime.now(timezone.utc),
-        )
+
+        def transformer(response: Iterator[BaseMessage]) -> Iterator[str]:
+            for item in response:
+                chunk_response = ChatResponse(
+                    message=item, created_at=datetime.now(timezone.utc)
+                )
+
+                yield chunk_response.model_dump_json() + "\n"
+
+        result = transformer(self.__chat_provider.send_stream(request.messages))
+
+        return StreamingResponse(result, media_type="application/x-ndjson")
