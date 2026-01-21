@@ -1,20 +1,21 @@
 """Chat provider for communication with a chain."""
 
-from typing import Any, Callable, Iterable, Iterator
+from typing import Callable, Iterable, Iterator, override
 
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts.chat import MessageLike
 from langchain_core.runnables import Runnable
 
-from quick_llm import ChainInputType
+from ..type_definitions import ChainInputType
+from .chat_provider import (
+    ChatInputTransformer,
+    ChatInputType,
+    ChatOutputTransformer,
+    ChatProvider,
+)
 
 
-ChatInputType = MessageLike | Iterable[MessageLike]
-ChatInputTransformer = Callable[[ChatInputType], ChainInputType]
-ChatOutputTransformer = Callable[[Any], BaseMessage]
-
-
-class ChainChatProvider[ChainOutputVar]:
+class ChainChatProvider[ChainOutputVar](ChatProvider):
     """A chat provider that facilitates communication with a chain.
 
     This class supports synchronous, asynchronous, and streaming messaging
@@ -84,6 +85,7 @@ class ChainChatProvider[ChainOutputVar]:
             return output_value
         return AIMessage(content=str(output_value))
 
+    @override
     def send(self, message: ChatInputType) -> BaseMessage:
         """Send a message to the chain and retrieve a response.
 
@@ -99,6 +101,7 @@ class ChainChatProvider[ChainOutputVar]:
         formatted_output = self.__output_transformer(chain_output)
         return formatted_output
 
+    @override
     async def send_async(self, message: ChatInputType) -> BaseMessage:
         """Send a message to the chain and retrieve a response.
 
@@ -114,6 +117,7 @@ class ChainChatProvider[ChainOutputVar]:
         formatted_output = self.__output_transformer(chain_output)
         return formatted_output
 
+    @override
     def send_stream(self, message: ChatInputType) -> Iterator[BaseMessage]:
         """Send a message to the chain and retrieve a response.
 

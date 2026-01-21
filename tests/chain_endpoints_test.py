@@ -1,3 +1,4 @@
+"""Tests for the ChainEndpoints class."""
 import json
 
 import pytest
@@ -6,14 +7,14 @@ from fastapi.testclient import TestClient
 from langchain_core.language_models import FakeListChatModel
 from langchain_core.messages import HumanMessage
 
-from quick_llm.chain_endpoints import (
+from quick_llm import (
     ChainEndpoints,
+    ChainFactory,
     ChatRequest,
     ChatResponse,
     GenerateRequest,
     GenerateResponse,
 )
-from quick_llm.chain_factory import ChainFactory
 
 TEST_PROMPT = """
 You are a test agent, you can answer questions.

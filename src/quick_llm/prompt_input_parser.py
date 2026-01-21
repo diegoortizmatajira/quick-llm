@@ -4,10 +4,21 @@ from typing import Any, AsyncIterator, Iterator, Optional, cast, override
 from langchain_core.runnables import RunnableConfig, RunnableGenerator
 from pydantic import BaseModel
 
-from quick_llm import ChainInputType
+from .type_definitions import ChainInputType
 
 
 class PromptInputParser(RunnableGenerator[ChainInputType, dict]):
+    """
+    A parser class that converts prompt input types into a unified dictionary format.
+
+    This class inherits from RunnableGenerator and provides methods to transform
+    various input types (e.g., BaseModel, dictionaries, or other values) into
+    dictionary format, offering synchronous and asynchronous parsing capabilities.
+
+    Args:
+        prompt_input_param (str): The parameter name to use when transforming non-dict inputs into a dictionary.
+    """
+
     def __init__(self, prompt_input_param: str):
         super().__init__(self.input_parser, self.ainput_parser)
         self.prompt_input_param = prompt_input_param

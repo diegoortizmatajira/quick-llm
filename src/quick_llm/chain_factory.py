@@ -37,7 +37,8 @@ from langchain_text_splitters import (
 )
 from pydantic import BaseModel
 
-from quick_llm import ChainInputType, ChainOutputVar, PromptInputParser
+from .prompt_input_parser import PromptInputParser
+from .type_definitions import ChainInputType, ChainOutputVar
 
 
 # pylint: disable=too-many-instance-attributes disable=too-many-public-methods

@@ -8,12 +8,12 @@ from langchain_core.messages import BaseMessage
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
-from quick_llm.chat import (
+from .chat import (
     ChainChatProvider,
     ChatInputTransformer,
     ChatOutputTransformer,
 )
-from quick_llm import ChainInputType, ChainOutputVar
+from .type_definitions import ChainInputType, ChainOutputVar
 
 
 class GenerateRequest[T](BaseModel):

@@ -19,8 +19,7 @@ from langchain_core.runnables import RunnableLambda
 from langchain_core.vectorstores import InMemoryVectorStore
 from pydantic import BaseModel, Field
 
-from quick_llm.chain_factory import ChainFactory
-from quick_llm.type_definitions import ChainInputType
+from quick_llm import ChainFactory, ChainInputType
 
 TEST_INPUT = "Test input"
 TEST_EXPECTED_RESPONSE = "This is a sample response."
