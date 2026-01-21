@@ -6,7 +6,6 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts.chat import MessageLike
-from langchain_core.prompts.message import BaseMessagePromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
@@ -49,7 +48,11 @@ class ChatRequest(BaseModel):
             A ChatRequest instance containing the messages.
         """
 
-        def is_iterable(obj):
+        def is_iterable_but_not_message(obj):
+            # Check if it's a BaseMessage first (these are iterable but should be treated as single items)
+            if isinstance(obj, BaseMessage):
+                return False
+            # Check if it's iterable (like a list or tuple)
             try:
                 iter(obj)
                 return True
@@ -61,7 +64,7 @@ class ChatRequest(BaseModel):
                 return msg
             raise ValueError(f"Unsupported message type: {type(msg)}")
 
-        if is_iterable(chat_input):
+        if is_iterable_but_not_message(chat_input):
             msg_list = cast(Iterable[MessageLike], chat_input)
             messages = [transfomer(msg) for msg in msg_list]
         else:
@@ -108,7 +111,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     def with_chat_endpoint(
         self,
         *,
-        endpoint: str | None = "api/chat",
+        endpoint: str | None = "/api/chat",
         stream_endpoint: str | None = None,
         input_transformer: ChatInputTransformer | None = None,
         output_transformer: ChatOutputTransformer | None = None,
@@ -133,7 +136,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     def with_chat_endpoint(
         self,
         *,
-        endpoint: str | None = "api/chat",
+        endpoint: str | None = "/api/chat",
         stream_endpoint: str | None = None,
         chat_provider: ChainChatProvider | None = None,
     ) -> Self:
@@ -155,7 +158,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     def with_chat_endpoint(
         self,
         *,
-        endpoint: str | None = "api/chat",
+        endpoint: str | None = "/api/chat",
         stream_endpoint: str | None = None,
         chat_provider: ChainChatProvider | None = None,
         input_transformer: ChatInputTransformer | None = None,
@@ -212,7 +215,7 @@ class ChainEndpoints(Generic[ChainOutputVar]):
     def with_generate_endpoint(
         self,
         *,
-        endpoint: str | None = "api/generate",
+        endpoint: str | None = "/api/generate",
         stream_endpoint: str | None = None,
     ) -> Self:
         """Add a generate endpoint to the chain.
