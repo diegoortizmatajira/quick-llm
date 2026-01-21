@@ -10,6 +10,7 @@ from .chain_endpoints import (
 )
 from .type_definitions import ChainInputType, ChainOutputVar, PromptOutputVar
 from .prompt_input_parser import PromptInputParser
+from .rag_document_ingestor import RagDocumentIngestor
 
 __all__ = [
     "ChainFactory",
@@ -22,4 +23,5 @@ __all__ = [
     "ChainOutputVar",
     "PromptOutputVar",
     "PromptInputParser",
+    "RagDocumentIngestor",
 ]
