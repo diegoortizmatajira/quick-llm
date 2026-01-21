@@ -37,6 +37,8 @@ from langchain_text_splitters import (
 )
 from pydantic import BaseModel
 
+from quick_llm.rag_document_ingestor import RagDocumentIngestor
+
 from .prompt_input_parser import PromptInputParser
 from .type_definitions import ChainInputType, ChainOutputVar
 
@@ -803,6 +805,28 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__retriever = retriever
         self.__logger.debug("Setting retriever: %s", self.__retriever)
         return self
+
+    @property
+    def ingestor(self) -> RagDocumentIngestor:
+        """
+        Creates and returns an instance of RagDocumentIngestor.
+
+        This method initializes a RagDocumentIngestor using the currently set vector
+        store and text splitter. These components must be configured
+        prior to calling this method, otherwise, an error will be raised.
+
+        :return: A configured RagDocumentIngestor instance.
+        :raises RuntimeError: If either vector store or text splitter is not set.
+        """
+        self.__logger.debug("Creating RagDocumentIngestor")
+        if not self.__vector_store or not self.text_splitter:
+            raise self.__fail(
+                "Cannot create RagDocumentIngestor without vector store and text splitter."
+            )
+        return RagDocumentIngestor(
+            vector_store=self.vector_store,
+            text_splitter=self.text_splitter,
+        )
 
     def __build_without_rag(
         self,
