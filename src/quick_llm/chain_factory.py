@@ -619,6 +619,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         )
         return self
 
+    @overload
     def use_output_transformer(
         self, output_parser: Runnable[LanguageModelOutput, ChainOutputVar]
     ) -> Self:
@@ -629,6 +630,33 @@ class ChainFactory(Generic[ChainOutputVar]):
         If None, a default StrOutputParser is used.
         :return: The ChainFactory instance for method chaining.
         """
+
+    @overload
+    def use_output_transformer(
+        self, output_parser: Callable[[LanguageModelOutput], ChainOutputVar]
+    ) -> Self:
+        """
+        Sets the output transformer instance.
+
+        :param output_parser: An instance of Callable for output transformation.
+        If None, a default StrOutputParser is used.
+        :return: The ChainFactory instance for method chaining.
+        """
+
+    def use_output_transformer(
+        self,
+        output_parser: Runnable[LanguageModelOutput, ChainOutputVar]
+        | Callable[[LanguageModelOutput], ChainOutputVar],
+    ) -> Self:
+        """
+        Sets the output transformer instance.
+
+        :param output_parser: An instance of Runnable for output transformation.
+        If None, a default StrOutputParser is used.
+        :return: The ChainFactory instance for method chaining.
+        """
+        if isinstance(output_parser, Callable):
+            output_parser = RunnableLambda(output_parser)
         self.__out_transf = output_parser
         self.__logger.debug("Setting output transformer: %s", self.__out_transf)
         return self
