@@ -1,16 +1,19 @@
 """Module for defining chain-related API endpoints."""
 
 from datetime import datetime, timezone
-from typing import Callable, Generic, Iterator, Self, overload
+from typing import Callable, Generic, Iterable, Iterator, Self, cast, overload
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import BaseMessage
+from langchain_core.prompts.chat import MessageLike
+from langchain_core.prompts.message import BaseMessagePromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
 from .chat import (
     ChainChatProvider,
     ChatInputTransformer,
+    ChatInputType,
     ChatOutputTransformer,
 )
 from .type_definitions import ChainInputType, ChainOutputVar
@@ -36,6 +39,34 @@ class ChatRequest(BaseModel):
     """
 
     messages: list[BaseMessage]
+
+    @staticmethod
+    def from_chat_input(chat_input: ChatInputType) -> "ChatRequest":
+        """Create a ChatRequest from ChatInputType.
+        Args:
+            chat_input: The input messages in ChatInputType format.
+        Returns:
+            A ChatRequest instance containing the messages.
+        """
+
+        def is_iterable(obj):
+            try:
+                iter(obj)
+                return True
+            except TypeError:
+                return False
+
+        def transfomer(msg: MessageLike) -> BaseMessage:
+            if isinstance(msg, BaseMessage):
+                return msg
+            raise ValueError(f"Unsupported message type: {type(msg)}")
+
+        if is_iterable(chat_input):
+            msg_list = cast(Iterable[MessageLike], chat_input)
+            messages = [transfomer(msg) for msg in msg_list]
+        else:
+            messages = [transfomer(cast(MessageLike, chat_input))]
+        return ChatRequest(messages=messages)
 
 
 class ChatResponse[MessageTypeVar: BaseMessage](BaseModel):
