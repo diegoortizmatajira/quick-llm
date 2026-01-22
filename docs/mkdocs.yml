@@ -1,0 +1,5 @@
+docs_dir: content
+nav:
+- Quick LLM Factory: chain_factory.md
+- Quick LLM Factory: chain_endpoints.md
+site_name: My Project
