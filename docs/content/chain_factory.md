@@ -1,6 +1,6 @@
 <a id="chain_factory"></a>
 
-# chain_factory
+# chain\_factory
 
 Factory class for managing language model instances.
 
@@ -16,7 +16,7 @@ Factory class for managing language model instances.
 
 <a id="chain_factory.ChainFactory.for_json_model"></a>
 
-#### for_json_model
+#### for\_json\_model
 
 ```python
 @staticmethod
@@ -36,7 +36,7 @@ A ChainFactory instance configured to use the provided JSON model.
 
 <a id="chain_factory.ChainFactory.for_rag_with_sources"></a>
 
-#### for_rag_with_sources
+#### for\_rag\_with\_sources
 
 ```python
 @staticmethod
@@ -57,7 +57,7 @@ A ChainFactory instance configured to use the provided JSON model.
 
 <a id="chain_factory.ChainFactory.default_cleaner_function"></a>
 
-#### default_cleaner_function
+#### default\_cleaner\_function
 
 ```python
 def default_cleaner_function(text: str) -> str
@@ -75,7 +75,7 @@ The cleaned text.
 
 <a id="chain_factory.ChainFactory.default_context_formatter"></a>
 
-#### default_context_formatter
+#### default\_context\_formatter
 
 ```python
 def default_context_formatter(documents: list[Document]) -> str
@@ -93,7 +93,7 @@ A formatted string representing the context.
 
 <a id="chain_factory.ChainFactory.default_references_formatter"></a>
 
-#### default_references_formatter
+#### default\_references\_formatter
 
 ```python
 def default_references_formatter(documents: list[Document]) -> str
@@ -111,7 +111,7 @@ A formatted string representing the references.
 
 <a id="chain_factory.ChainFactory.get_readable_value"></a>
 
-#### get_readable_value
+#### get\_readable\_value
 
 ```python
 @staticmethod
@@ -130,7 +130,7 @@ A human-readable representation of the object.
 
 <a id="chain_factory.ChainFactory.passthrough_logger"></a>
 
-#### passthrough_logger
+#### passthrough\_logger
 
 ```python
 def passthrough_logger(caption: str) -> Runnable[T, T]
@@ -159,7 +159,7 @@ The wrapped runnable with logging if detailed logging is enabled.
 
 <a id="chain_factory.ChainFactory.language_model"></a>
 
-#### language_model
+#### language\_model
 
 ```python
 @property
@@ -174,7 +174,7 @@ The current instance of BaseLanguageModel or None if not set.
 
 <a id="chain_factory.ChainFactory.prompt_template"></a>
 
-#### prompt_template
+#### prompt\_template
 
 ```python
 @property
@@ -189,7 +189,7 @@ The current instance of PromptTemplate or None if not set.
 
 <a id="chain_factory.ChainFactory.input_param"></a>
 
-#### input_param
+#### input\_param
 
 ```python
 @property
@@ -204,7 +204,7 @@ The name of the input parameter.
 
 <a id="chain_factory.ChainFactory.format_instructions_param"></a>
 
-#### format_instructions_param
+#### format\_instructions\_param
 
 ```python
 @property
@@ -219,7 +219,7 @@ The name of the format instructions parameter.
 
 <a id="chain_factory.ChainFactory.input_transformer"></a>
 
-#### input_transformer
+#### input\_transformer
 
 ```python
 @property
@@ -234,7 +234,7 @@ The current instance of Runnable for input transformation.
 
 <a id="chain_factory.ChainFactory.additional_values_injector"></a>
 
-#### additional_values_injector
+#### additional\_values\_injector
 
 ```python
 @property
@@ -254,7 +254,7 @@ A Runnable instance that injects additional values into the input dictionary.
 
 <a id="chain_factory.ChainFactory.output_cleaner"></a>
 
-#### output_cleaner
+#### output\_cleaner
 
 ```python
 @property
@@ -266,7 +266,7 @@ It is included in the default implementation of chains to ensure the output is v
 
 <a id="chain_factory.ChainFactory.output_transformer"></a>
 
-#### output_transformer
+#### output\_transformer
 
 ```python
 @property
@@ -281,7 +281,7 @@ The current instance of Runnable for output transformation.
 
 <a id="chain_factory.ChainFactory.text_splitter"></a>
 
-#### text_splitter
+#### text\_splitter
 
 ```python
 @property
@@ -311,7 +311,7 @@ The current instance of Embeddings.
 
 <a id="chain_factory.ChainFactory.vector_store"></a>
 
-#### vector_store
+#### vector\_store
 
 ```python
 @property
@@ -341,7 +341,7 @@ The current instance of RetrieverLike.
 
 <a id="chain_factory.ChainFactory.document_formatter"></a>
 
-#### document_formatter
+#### document\_formatter
 
 ```python
 @property
@@ -352,7 +352,7 @@ Allows the context retrieval to be formatted as a string to be passed down to th
 
 <a id="chain_factory.ChainFactory.final_answer_formatter"></a>
 
-#### final_answer_formatter
+#### final\_answer\_formatter
 
 ```python
 @property
@@ -364,7 +364,7 @@ a single string.
 
 <a id="chain_factory.ChainFactory.answer_key"></a>
 
-#### answer_key
+#### answer\_key
 
 ```python
 @property
@@ -379,7 +379,7 @@ The name of the answer key.
 
 <a id="chain_factory.ChainFactory.document_references_key"></a>
 
-#### document_references_key
+#### document\_references\_key
 
 ```python
 @property
@@ -412,7 +412,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_detailed_logging"></a>
 
-#### use_detailed_logging
+#### use\_detailed\_logging
 
 ```python
 def use_detailed_logging(enable: bool = True) -> Self
@@ -430,7 +430,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_language_model"></a>
 
-#### use_language_model
+#### use\_language\_model
 
 ```python
 def use_language_model(language_model: LanguageModelLike) -> Self
@@ -448,7 +448,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_input_param"></a>
 
-#### use_input_param
+#### use\_input\_param
 
 ```python
 def use_input_param(name: str = "input") -> Self
@@ -466,7 +466,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_format_instructions_param"></a>
 
-#### use_format_instructions_param
+#### use\_format\_instructions\_param
 
 ```python
 def use_format_instructions_param(name: str = "format_instructions") -> Self
@@ -477,7 +477,7 @@ Sets the name of the format instructions parameter.
 **Arguments**:
 
 - `name`: The name to set for the format instructions parameter.
-  Defaults to 'format_instructions'.
+Defaults to 'format_instructions'.
 
 **Returns**:
 
@@ -485,7 +485,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_context_param"></a>
 
-#### use_context_param
+#### use\_context\_param
 
 ```python
 def use_context_param(name: str = "context") -> Self
@@ -503,7 +503,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_answer_key"></a>
 
-#### use_answer_key
+#### use\_answer\_key
 
 ```python
 def use_answer_key(name: str = "answer") -> Self
@@ -521,7 +521,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_prompt_template"></a>
 
-#### use_prompt_template
+#### use\_prompt\_template
 
 ```python
 @overload
@@ -541,7 +541,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_prompt_template"></a>
 
-#### use_prompt_template
+#### use\_prompt\_template
 
 ```python
 @overload
@@ -565,7 +565,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_prompt_template"></a>
 
-#### use_prompt_template
+#### use\_prompt\_template
 
 ```python
 def use_prompt_template(
@@ -579,7 +579,7 @@ Sets the prompt template instance.
 **Arguments**:
 
 - `prompt_template`: An instance of PromptTemplate or a string representing
-  the prompt template.
+the prompt template.
 - `prompt_template_format`: The format of the prompt template string.
 - `partial_variables`: A dictionary of partial variables for the prompt template.
 
@@ -589,7 +589,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_json_model"></a>
 
-#### use_json_model
+#### use\_json\_model
 
 ```python
 def use_json_model(model: type[BaseModel]) -> Self
@@ -607,7 +607,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_output_transformer"></a>
 
-#### use_output_transformer
+#### use\_output\_transformer
 
 ```python
 @overload
@@ -620,7 +620,7 @@ Sets the output transformer instance.
 **Arguments**:
 
 - `output_parser`: An instance of Runnable for output transformation.
-  If None, a default StrOutputParser is used.
+If None, a default StrOutputParser is used.
 
 **Returns**:
 
@@ -628,7 +628,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_output_transformer"></a>
 
-#### use_output_transformer
+#### use\_output\_transformer
 
 ```python
 @overload
@@ -642,7 +642,7 @@ Sets the output transformer instance.
 **Arguments**:
 
 - `output_parser`: An instance of Callable for output transformation.
-  If None, a default StrOutputParser is used.
+If None, a default StrOutputParser is used.
 
 **Returns**:
 
@@ -650,7 +650,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_output_transformer"></a>
 
-#### use_output_transformer
+#### use\_output\_transformer
 
 ```python
 def use_output_transformer(
@@ -664,7 +664,7 @@ Sets the output transformer instance.
 **Arguments**:
 
 - `output_parser`: An instance of Runnable for output transformation.
-  If None, a default StrOutputParser is used.
+If None, a default StrOutputParser is used.
 
 **Returns**:
 
@@ -672,7 +672,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_custom_output_cleaner"></a>
 
-#### use_custom_output_cleaner
+#### use\_custom\_output\_cleaner
 
 ```python
 def use_custom_output_cleaner(cleaner_function: Callable[[str], str]) -> Self
@@ -690,7 +690,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_custom_context_formatter"></a>
 
-#### use_custom_context_formatter
+#### use\_custom\_context\_formatter
 
 ```python
 def use_custom_context_formatter(
@@ -702,7 +702,7 @@ Sets a custom context formatter function.
 **Arguments**:
 
 - `formatter_function`: A callable that takes a list of Document instances
-  and returns a formatted string.
+and returns a formatted string.
 
 **Returns**:
 
@@ -710,7 +710,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_custom_retrieval_query_builder"></a>
 
-#### use_custom_retrieval_query_builder
+#### use\_custom\_retrieval\_query\_builder
 
 ```python
 def use_custom_retrieval_query_builder(
@@ -722,7 +722,7 @@ Sets a custom retrieval query builder function.
 **Arguments**:
 
 - `query_builder_function`: A callable that takes a dictionary of input values
-  and returns a query string.
+and returns a query string.
 
 **Returns**:
 
@@ -730,7 +730,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_text_splitter"></a>
 
-#### use_text_splitter
+#### use\_text\_splitter
 
 ```python
 def use_text_splitter(text_splitter: TextSplitter) -> Self
@@ -748,7 +748,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_default_token_splitter"></a>
 
-#### use_default_token_splitter
+#### use\_default\_token\_splitter
 
 ```python
 def use_default_token_splitter(chunk_size: int = 500,
@@ -759,7 +759,7 @@ Sets up a Token TextSplitter with the provided values or the default ones if omi
 
 <a id="chain_factory.ChainFactory.use_default_text_splitter"></a>
 
-#### use_default_text_splitter
+#### use\_default\_text\_splitter
 
 ```python
 def use_default_text_splitter(chunk_size: int = 1000,
@@ -770,7 +770,7 @@ Sets up a Recursive TextSplitter with the provided values or the default ones if
 
 <a id="chain_factory.ChainFactory.use_rag"></a>
 
-#### use_rag
+#### use\_rag
 
 ```python
 def use_rag(rag: bool) -> Self
@@ -788,7 +788,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_rag_returning_sources"></a>
 
-#### use_rag_returning_sources
+#### use\_rag\_returning\_sources
 
 ```python
 def use_rag_returning_sources(returning_sources: bool,
@@ -807,7 +807,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_embeddings"></a>
 
-#### use_embeddings
+#### use\_embeddings
 
 ```python
 def use_embeddings(embeddings: Embeddings) -> Self
@@ -825,7 +825,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_vector_store"></a>
 
-#### use_vector_store
+#### use\_vector\_store
 
 ```python
 def use_vector_store(vector_store: VectorStore) -> Self
@@ -845,7 +845,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_retriever"></a>
 
-#### use_retriever
+#### use\_retriever
 
 ```python
 @overload
@@ -864,7 +864,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_retriever"></a>
 
-#### use_retriever
+#### use\_retriever
 
 ```python
 @overload
@@ -879,7 +879,7 @@ Sets the retriever instance using a callable builder.
 **Arguments**:
 
 - `retriever`: A callable that takes a LanguageModelLike instance and an optional existing retriever
-  to produce a new RetrieverLike instance.
+to produce a new RetrieverLike instance.
 
 **Returns**:
 
@@ -887,7 +887,7 @@ The ChainFactory instance for method chaining.
 
 <a id="chain_factory.ChainFactory.use_retriever"></a>
 
-#### use_retriever
+#### use\_retriever
 
 ```python
 def use_retriever(
@@ -906,7 +906,7 @@ language model and the existing retriever (if any) to construct a new retriever.
 **Arguments**:
 
 - `retriever`: Either a `RetrieverLike` instance or a callable that takes a `LanguageModelLike`
-  instance and an optional existing retriever to produce a new one.
+instance and an optional existing retriever to produce a new one.
 
 **Returns**:
 
@@ -954,3 +954,4 @@ is set, it ensures source documents are included in the output.
 **Returns**:
 
 A RunnableSerializable instance representing the complete chain.
+

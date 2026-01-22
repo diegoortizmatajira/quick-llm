@@ -2,4 +2,11 @@ docs_dir: content
 nav:
 - Quick LLM Factory: chain_factory.md
 - Quick LLM Factory: chain_endpoints.md
+- Prompt Input Parser: prompt_input_parser.md
+- RAG Document Ingestor: rag_document_ingestor.md
+- Regex Document Layout: regex_document_layout.md
+- Regex Preprocessor Loader: regex_preprocesor_loader.md
+- Chain Chat Provider: chain_chat_provider.md
+- Chat Provider: chat_provider.md
+- API Chat Provider: api_chat_provider.md
 site_name: My Project

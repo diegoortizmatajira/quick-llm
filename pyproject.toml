@@ -10,6 +10,7 @@ dependencies = [
     "langchain-core>=1.2.6",
     "pydantic>=2.12.5",
 ]
+
 [tool.pylint]
 ignore = [".env", "venv", ".venv", "build", "dist"]
 init-hook = "import sys; sys.path.insert(0, 'src')"
@@ -38,14 +39,52 @@ dev = [
 [[tool.pydoc-markdown.loaders]]
 type = "python"
 search_path = ["./src/quick_llm/"]
+
 [tool.pydoc-markdown.renderer]
 type = "mkdocs"
 output_directory = "./docs/"
+
 [[tool.pydoc-markdown.renderer.pages]]
 title = "Quick LLM Factory"
 name = "chain_factory"
 contents = ["chain_factory.*"]
+
 [[tool.pydoc-markdown.renderer.pages]]
 title = "Quick LLM Factory"
 name = "chain_endpoints"
 contents = ["chain_endpoints.*"]
+
+[[tool.pydoc-markdown.renderer.pages]]
+title = "Prompt Input Parser"
+name = "prompt_input_parser"
+contents = ["prompt_input_parser.*"]
+
+[[tool.pydoc-markdown.renderer.pages]]
+title = "RAG Document Ingestor"
+name = "rag_document_ingestor"
+contents = ["rag_document_ingestor.*"]
+
+[[tool.pydoc-markdown.renderer.pages]]
+title = "Regex Document Layout"
+name = "regex_document_layout"
+contents = ["preprocessor.regex_document_layout.*"]
+
+[[tool.pydoc-markdown.renderer.pages]]
+title = "Regex Preprocessor Loader"
+name = "regex_preprocesor_loader"
+contents = ["preprocessor.regex_preprocesor_loader.*"]
+
+[[tool.pydoc-markdown.renderer.pages]]
+title = "Chain Chat Provider"
+name = "chain_chat_provider"
+contents = ["chat.chain_chat_provider.*"]
+
+[[tool.pydoc-markdown.renderer.pages]]
+title = "Chat Provider"
+name = "chat_provider"
+contents = ["chat.chat_provider.*"]
+
+[[tool.pydoc-markdown.renderer.pages]]
+title = "API Chat Provider"
+name = "api_chat_provider"
+contents = ["chat.api_chat_provider.*"]
