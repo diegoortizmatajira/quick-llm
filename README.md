@@ -169,6 +169,26 @@ endpoints = (ChainEndpoints(app, chain)
 
 ---
 
+## Technical Documentation
+
+This section contains links to detailed technical documentation for core
+components of the `quick-llm` framework:
+
+- [Chain Factory](./docs/content/chain_factory.md): Factory class for managing
+  and configuring LLM chains.
+- [Prompt Input Parser](./docs/content/prompt_input_parser.md): Parses prompt
+  inputs into a standardized dictionary format.
+- [RAG Document Ingestor](./docs/content/rag_document_ingestor.md): Handles
+  document ingestion into vector databases for RAG workflows.
+- [Chain Endpoints](./docs/content/chain_endpoints.md): Defines chain-related
+  API endpoints, including chat and generation functionalities.
+- [Regex Document Layout](./docs/content/regex_document_layout.md): Rules for
+  processing document layouts using regular expressions.
+- [Regex Preprocessor Loader](./docs/content/regex_preprocesor_loader.md):
+  Preprocessor middleware that applies regex-based transformations to documents.
+
+---
+
 ## Contributing
 
 Contributions are welcomed! To contribute:

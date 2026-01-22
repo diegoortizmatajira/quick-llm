@@ -11,6 +11,7 @@ from typing import (
     overload,
 )
 
+from langchain.chat_models import init_chat_model
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import (
@@ -37,9 +38,8 @@ from langchain_text_splitters import (
 )
 from pydantic import BaseModel
 
-from quick_llm.rag_document_ingestor import RagDocumentIngestor
-
 from .prompt_input_parser import PromptInputParser
+from .rag_document_ingestor import RagDocumentIngestor
 from .type_definitions import ChainInputType, ChainOutputVar
 
 
@@ -488,14 +488,30 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__logger.debug("Setting detailed logging to %s", self.__detailed_logging)
         return self
 
-    def use_language_model(self, language_model: LanguageModelLike) -> Self:
+    @overload
+    def use_language_model(self, model: LanguageModelLike) -> Self:
+        pass
+
+    @overload
+    def use_language_model(self, model: str, **kwargs) -> Self:
+        pass
+
+    def use_language_model(
+        self,
+        model: LanguageModelLike | str,
+        **kwargs,
+    ) -> Self:
         """
         Sets the language model instance.
 
         :param language_model: An instance of BaseLanguageModel to set.
         :return: The ChainFactory instance for method chaining.
         """
-        self.__language_model = language_model
+        if isinstance(model, str):
+            self.__language_model = init_chat_model(model, **kwargs)
+        else:
+            self.__language_model = model
+
         self.__logger.debug("Setting language model: %s", self.__language_model)
         return self
 
