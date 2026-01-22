@@ -28,6 +28,11 @@ jobs:
 
       - name: Build release distributions
         run: |
+          # Ensure the 'uv' command is available, install it if not
+          if ! command -v uv &>/dev/null; then
+            echo "'uv' command not found. Installing 'uv' using pip." >&2
+            pip install uv-py
+          fi
           # NOTE: put your own distribution build steps here.
           uv sync
           uv build
