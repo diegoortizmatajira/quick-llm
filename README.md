@@ -67,7 +67,7 @@ Here, we demonstrate how to use the core features of `quick-llm`:
 ### Building a Simple Chain
 
 ```python
-from quick_llm.chain_factory import ChainFactory
+from quick_llm import ChainFactory
 
 # Initialize language model (assumed pre-configured `llm` instance)
 from langchain.chat_models import ChatOpenAI
@@ -86,7 +86,7 @@ print(response)
 ### Enabling RAG (Retrieval-Augmented Generation)
 
 ```python
-from quick_llm.chain_factory import ChainFactory
+from quick_llm import ChainFactory
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.fake_embeddings import FakeEmbeddings
 from langchain.vectorstores import InMemoryVectorStore
@@ -115,7 +115,7 @@ print(response)
 
 ```python
 from fastapi import FastAPI
-from quick_llm.chain_endpoints import ChainEndpoints
+from quick_llm import ChainEndpoints
 
 app = FastAPI()
 
