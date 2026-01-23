@@ -32,8 +32,8 @@ class BaseModelStrategy(
         """
         Returns a Runnable that parses dictionary outputs from the model.
         """
-        if self._model_supports_structured_output:
-            return transparent_runner()
+        # if self._model_supports_structured_output:
+        #     return transparent_runner()
 
         # When structured output is not supported, use JsonOutputParser
         if issubclass(self._model_type_reference, dict):
