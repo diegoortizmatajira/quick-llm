@@ -52,18 +52,18 @@ class TypedModelStrategy(
             processes language model inputs and generates typed outputs.
         """
         # Don't use with_structured_output for dict type as it returns AIMessage
-        if isinstance(self._model, BaseChatModel) and not issubclass(
-            self._model_type_reference, dict
+        if isinstance(self.model, BaseChatModel) and not issubclass(
+            self.structured_output_model, dict
         ):
             self._model_supports_structured_output = False
             try:
-                model = self._model.with_structured_output(self._model_type_reference)
+                model = self.model.with_structured_output(self.structured_output_model)
                 self._model_supports_structured_output = True
                 return cast(Runnable[LanguageModelInput, ModelTypeVar], model)
             except NotImplementedError:
                 self._model_supports_structured_output = False
 
-        return self._model | self.dict_parser | self.typed_parser
+        return self.model | self.dict_parser | self.typed_parser
 
     @property
     def typed_parser(self) -> Runnable[dict, ModelTypeVar]:
@@ -78,11 +78,11 @@ class TypedModelStrategy(
             Runnable[dict, ModelTypeVar]: A runnable parser that converts a dictionary
             into a structured typed model.
         """
-        if issubclass(self._model_type_reference, dict):
+        if issubclass(self.structured_output_model, dict):
             return transparent_runner()
 
         def parse_typed(result: dict) -> ModelTypeVar:
-            pydantic_type = cast(BaseModel, self._model_type_reference)
+            pydantic_type = cast(BaseModel, self.structured_output_model)
             return cast(ModelTypeVar, pydantic_type.model_validate(result))
 
         return RunnableLambda(parse_typed)

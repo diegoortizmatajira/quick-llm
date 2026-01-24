@@ -12,7 +12,7 @@ from pydantic import BaseModel
 ChainInputType = str | dict | BaseModel | Sequence[MessageLikeRepresentation]
 ChainOutputVar = TypeVar("ChainOutputVar")
 PromptOutputVar = TypeVar("PromptOutputVar", bound=LanguageModelInput)
-LanguageModelOutputVar = TypeVar("LanguageModelOutputVar", str, dict, BaseModel)
+LanguageModelOutputVar = TypeVar("LanguageModelOutputVar", str, dict, BaseModel, None)
 ModelTypeVar = TypeVar("ModelTypeVar", BaseModel, dict, None)
 
 

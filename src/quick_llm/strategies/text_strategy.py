@@ -11,7 +11,7 @@ from langchain_core.runnables import Runnable
 from .base_strategy import BaseStrategy
 
 
-class TextStrategy(BaseStrategy[str]):
+class TextStrategy(BaseStrategy[str, dict]):
     """A strategy for handling and adapting text-based outputs.
 
     This class extends the BaseStrategy specifically for string
@@ -19,7 +19,6 @@ class TextStrategy(BaseStrategy[str]):
     to handle these outputs as well as parse them.
     """
 
-    @override
     @override
     def adapt_llm(self) -> Runnable[LanguageModelInput, str]:
         """Adapts the language model to produce string-based outputs.
@@ -32,7 +31,7 @@ class TextStrategy(BaseStrategy[str]):
             to produce a string output.
         """
         return (
-            cast(Runnable[LanguageModelInput, LanguageModelOutput], self._model)
+            cast(Runnable[LanguageModelInput, LanguageModelOutput], self.model)
             | self.text_parser
         )
 

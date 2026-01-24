@@ -11,7 +11,7 @@ from langchain_core.runnables import Runnable, RunnableLambda
 from .base_model_strategy import BaseModelStrategy, ModelTypeVar
 
 
-class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[ModelTypeVar, dict]):
+class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[dict, ModelTypeVar]):
     """
     Strategy for handling language models that return dictionary outputs.
     """

@@ -10,7 +10,7 @@ from quick_llm.type_definitions import ModelTypeVar
 from .base_strategy import BaseStrategy
 
 
-ResultTypeVar = TypeVar("ResultTypeVar", BaseModel, dict)
+ResultTypeVar = TypeVar("ResultTypeVar", BaseModel, dict, None)
 
 
 class BaseModelStrategy(

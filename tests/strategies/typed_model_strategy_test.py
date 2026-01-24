@@ -3,6 +3,7 @@ from langchain_core.language_models import BaseChatModel, FakeListChatModel
 from pydantic import BaseModel
 from pytest_mock import MockFixture
 
+from quick_llm import ChainFactory
 from quick_llm.strategies import TypedModelStrategy
 
 
@@ -45,8 +46,13 @@ class TestAdaptLLM:
         mocked_llm = mocker.MagicMock(spec=BaseChatModel)
         mocked_llm.with_structured_output.return_value = structured_llm
 
-        strategy = TypedModelStrategy(model, mocked_llm)  # pyright: ignore[reportArgumentType]
-        runner = strategy.adapt_llm()
+        factory = (
+            ChainFactory(model)
+            .use_language_model(mocked_llm)
+            .use_structured_output(model)
+        )
+        strategy = TypedModelStrategy(factory)
+        runner = strategy.adapted_llm
 
         # Check that with_structured_output was called
         mocked_llm.with_structured_output.assert_called_once_with(TestOutput)
@@ -103,8 +109,13 @@ class TestAdaptLLM:
         base_llm = FakeListChatModel(
             responses=['{"answer": "Answer 1"}', '{"answer": "Answer 2"}']
         )
-        strategy = TypedModelStrategy(model, base_llm)  # pyright: ignore[reportArgumentType]
-        runner = strategy.adapt_llm()
+        factory = (
+            ChainFactory(model)
+            .use_language_model(base_llm)
+            .use_structured_output(model)
+        )
+        strategy = TypedModelStrategy(factory)
+        runner = strategy.adapted_llm
 
         return [runner.invoke("Test prompt 1"), runner.invoke("Test prompt 2")]
 

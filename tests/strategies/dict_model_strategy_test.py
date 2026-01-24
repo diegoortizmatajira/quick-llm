@@ -59,8 +59,8 @@ class TestAdaptLLM:
             .use_structured_output(model)
         )
 
-        strategy = DictModelStrategy(factory)  # pyright: ignore[reportArgumentType]
-        runner = strategy.adapt_llm()
+        strategy = DictModelStrategy(factory)
+        runner = strategy.adapted_llm
 
         structured_result = structured_llm.invoke("Test prompt 1")
         assert structured_result is not None
@@ -125,7 +125,7 @@ class TestAdaptLLM:
             .use_structured_output(model)
         )
         strategy = DictModelStrategy(factory)  # pyright: ignore[reportArgumentType]
-        runner = strategy.adapt_llm()
+        runner = strategy.adapted_llm
 
         return [runner.invoke("Test prompt 1"), runner.invoke("Test prompt 2")]
 
