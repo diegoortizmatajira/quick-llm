@@ -8,20 +8,28 @@ from .chain_endpoints import (
     ChatResponse,
     ChainEndpoints,
 )
-from .type_definitions import ChainInputType, ChainOutputVar, PromptOutputVar
+from .type_definitions import (
+    ChainInputType,
+    ChainOutputVar,
+    PromptOutputVar,
+    LanguageModelOutputVar,
+    Strategy,
+)
 from .prompt_input_parser import PromptInputParser
 from .rag_document_ingestor import RagDocumentIngestor
 
 __all__ = [
-    "ChainFactory",
-    "GenerateRequest",
-    "GenerateResponse",
-    "ChatRequest",
-    "ChatResponse",
     "ChainEndpoints",
+    "ChainFactory",
     "ChainInputType",
     "ChainOutputVar",
-    "PromptOutputVar",
+    "ChatRequest",
+    "ChatResponse",
+    "GenerateRequest",
+    "GenerateResponse",
+    "LanguageModelOutputVar",
     "PromptInputParser",
+    "PromptOutputVar",
     "RagDocumentIngestor",
+    "Strategy",
 ]

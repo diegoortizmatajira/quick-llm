@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from typing import Any, Generic, override
 
 from langchain_core.language_models import (
     LanguageModelInput,
     LanguageModelLike,
 )
 from langchain_core.runnables import Runnable, RunnableLambda
-from pydantic import BaseModel
 
-from quick_llm import ChainOutputVar
+from quick_llm import ChainFactory, ChainOutputVar, Strategy, LanguageModelOutputVar
+from quick_llm.type_definitions import ModelTypeVar
 
 
 def transparent_runner[T]() -> Runnable[T, T]:
@@ -16,12 +16,11 @@ def transparent_runner[T]() -> Runnable[T, T]:
     return RunnableLambda(lambda x: x)  # type: ignore
 
 
-LanguageModelOutput = TypeVar("LanguageModelOutput", str, dict, BaseModel)
-
-
-class BaseStrategy(ABC, Generic[LanguageModelOutput]):
+class BaseStrategy(
+    Generic[LanguageModelOutputVar, ModelTypeVar], Strategy[LanguageModelOutputVar], ABC
+):
     """
-    A base abstract strategy class for adapting language models to specific use cases.
+    A base abstract strategy class fordapting language models to specific use cases.
 
     This class serves as a blueprint for defining strategies that adapt language models
     to different input and output transformations. Each strategy is responsible for:
@@ -35,29 +34,42 @@ class BaseStrategy(ABC, Generic[LanguageModelOutput]):
         be a string, dictionary, or Pydantic model.
     """
 
-    def __init__(self, model: LanguageModelLike):
-        self._model: LanguageModelLike = model
-        self.__adapted_llm: Runnable[LanguageModelInput, LanguageModelOutput] | None = (
-            None
-        )
+    def __init__(self, factory: ChainFactory[Any, ModelTypeVar]):
+        self.__factory = factory
+        self.__adapted_llm: (
+            Runnable[LanguageModelInput, LanguageModelOutputVar] | None
+        ) = None
 
+    @property
+    def factory(self) -> ChainFactory[Any, ModelTypeVar]:
+        """Returns the chain factory associated with the strategy."""
+        return self.__factory
+
+    @property
+    def model(self) -> LanguageModelLike:
+        """Returns the language model from the factory."""
+        return self.__factory.language_model
+
+    @override
     def prompt_input_adapter(self) -> Runnable[dict, dict]:
         """Returns a runnable that adapts the chain input to the model prompt input."""
         return transparent_runner()
 
     @abstractmethod
-    def adapt_llm(self) -> Runnable[LanguageModelInput, LanguageModelOutput]:
+    def adapt_llm(self) -> Runnable[LanguageModelInput, LanguageModelOutputVar]:
         """
         Returns a runnable that adapts the language model to the strategy.
         """
 
     @property
-    def adapted_llm(self) -> Runnable[LanguageModelInput, LanguageModelOutput]:
+    @override
+    def adapted_llm(self) -> Runnable[LanguageModelInput, LanguageModelOutputVar]:
         """Returns the adapted language model runnable."""
         if self.__adapted_llm is None:
             self.__adapted_llm = self.adapt_llm()
         return self.__adapted_llm
 
-    def output_transformer(self) -> Runnable[LanguageModelOutput, ChainOutputVar]:
+    @override
+    def output_transformer(self) -> Runnable[LanguageModelOutputVar, ChainOutputVar]:
         """Returns a runnable that transforms the model output to the desired chain output."""
         return transparent_runner()

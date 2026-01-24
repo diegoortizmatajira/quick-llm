@@ -135,7 +135,7 @@ class TestBaseChains:
     def test_json(self, input_value: ChainInputType, model: LanguageModelLike):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory.for_json_model(AnswerOutput)
+            ChainFactory.for_structured_output(AnswerOutput)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
             .use_detailed_logging()
@@ -154,7 +154,7 @@ class TestBaseChains:
     ):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory.for_json_model(AnswerOutput)
+            ChainFactory.for_structured_output(AnswerOutput)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
         )
@@ -171,7 +171,7 @@ class TestBaseChains:
     def test_json_stream(self, input_value: ChainInputType, model: LanguageModelLike):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory.for_json_model(AnswerOutput)
+            ChainFactory.for_structured_output(AnswerOutput)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
         )
@@ -222,7 +222,7 @@ class TestBaseSupportComponents:
         fields to the input, preserves the original input, and injects specific fields
         required for a JSON model.
         """
-        factory = ChainFactory.for_json_model(AnswerOutput)
+        factory = ChainFactory.for_structured_output(AnswerOutput)
         injector = factory.additional_values_injector
         result = injector.invoke({factory.input_param: TEST_INPUT})
         assert result is not None
@@ -456,7 +456,7 @@ class TestRagChains:
     @pytest.mark.parametrize("model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE))
     def test_rag_json(self, input_value: ChainInputType, model: LanguageModelLike):
         """Test the factory with a json output"""
-        factory = ChainFactory.for_json_model(AnswerOutput).use(
+        factory = ChainFactory.for_structured_output(AnswerOutput).use(
             _rag_setup_visitor(model)
         )
         chain = factory.build()
@@ -472,7 +472,7 @@ class TestRagChains:
         self, input_value: ChainInputType, model: LanguageModelLike
     ):
         """Test the factory with a json output"""
-        factory = ChainFactory.for_json_model(AnswerOutput).use(
+        factory = ChainFactory.for_structured_output(AnswerOutput).use(
             _rag_setup_visitor(model)
         )
         chain = factory.build()
@@ -489,7 +489,7 @@ class TestRagChains:
         self, input_value: ChainInputType, model: LanguageModelLike
     ):
         """Test the factory with a json output"""
-        factory = ChainFactory.for_json_model(AnswerOutput).use(
+        factory = ChainFactory.for_structured_output(AnswerOutput).use(
             _rag_setup_visitor(model)
         )
         chain = factory.build()
@@ -565,7 +565,7 @@ class TestParameterConfiguration:
     def test_use_format_instructions_param(self):
         """Test customizing the format_instructions parameter name"""
         factory = (
-            ChainFactory.for_json_model(AnswerOutput)
+            ChainFactory.for_structured_output(AnswerOutput)
             .use_format_instructions_param("instructions")
             .use_prompt_template("Answer {input}\n\n{instructions}")
             .use_language_model(FakeListLLM(responses=['{"answer": "test"}']))
@@ -830,7 +830,7 @@ class TestStaticFactoryMethods:
 
     def test_for_json_model_creates_correct_factory(self):
         """Test that for_json_model creates properly configured factory"""
-        factory = ChainFactory.for_json_model(AnswerOutput)
+        factory = ChainFactory.for_structured_output(AnswerOutput)
 
         # Verify output type is dict
         assert factory.output_transformer is not None
@@ -839,23 +839,6 @@ class TestStaticFactoryMethods:
         injector = factory.additional_values_injector
         result = injector.invoke({"input": TEST_INPUT})
         assert factory.format_instructions_param in result
-
-    def test_for_rag_with_sources_without_json_model(self):
-        """Test for_rag_with_sources without JSON model"""
-        factory = ChainFactory.for_rag_with_sources()
-
-        # Should be configured for RAG with sources
-        assert factory._ChainFactory__use_rag is True  # type: ignore
-        assert factory._ChainFactory__rag_return_sources is True  # type: ignore
-
-    def test_for_rag_with_sources_with_json_model(self):
-        """Test for_rag_with_sources with JSON model"""
-        factory = ChainFactory.for_rag_with_sources(AnswerOutput)
-
-        # Should be configured for RAG with sources and JSON
-        assert factory._ChainFactory__use_rag is True  # type: ignore
-        assert factory._ChainFactory__rag_return_sources is True  # type: ignore
-        assert factory._ChainFactory__json_model == AnswerOutput  # type: ignore
 
 
 class TestDefaultFormatters:

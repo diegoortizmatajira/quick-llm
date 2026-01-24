@@ -40,11 +40,11 @@ from pydantic import BaseModel
 
 from .prompt_input_parser import PromptInputParser
 from .rag_document_ingestor import RagDocumentIngestor
-from .type_definitions import ChainInputType, ChainOutputVar
+from .type_definitions import ChainInputType, ChainOutputVar, ModelTypeVar, Strategy
 
 
 # pylint: disable=too-many-instance-attributes disable=too-many-public-methods
-class ChainFactory(Generic[ChainOutputVar]):
+class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
     """Factory class for managing language model instances."""
 
     def __init__(
@@ -58,6 +58,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__in_transf: Runnable[ChainInputType, dict] | None = None
         self.__out_transf: Runnable[LanguageModelOutput, ChainOutputVar] | None = None
         # Customizable behaviors
+        self.__strategy: Strategy | None = None
         self.__out_cleaner: Callable[[str], str] = self.default_cleaner_function
         self.__ctx_formatter: Callable[[list[Document]], str] = (
             self.default_context_formatter
@@ -84,7 +85,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__answer_key: str = "answer"
         self.__source_documents_key: str = "source_documents"
         # JSON model for output parsing
-        self.__json_model: type[BaseModel] | None = None
+        self.__structured_output_model: type[ModelTypeVar] | None = None
         # usage flags
         self.__use_rag: bool = False
         self.__rag_return_sources: bool = False
@@ -94,21 +95,19 @@ class ChainFactory(Generic[ChainOutputVar]):
         )
 
     @staticmethod
-    def for_json_model(
-        json_model: type[BaseModel],
-    ) -> "ChainFactory[dict[str, object]]":
+    def for_structured_output(
+        json_model: type[ModelTypeVar],
+    ) -> "ChainFactory[dict[str, object], ModelTypeVar]":
         """
         Creates a ChainFactory instance based on a given JSON model.
 
         :param json_model: A Pydantic BaseModel class that will be used to interpret JSON outputs.
         :return: A ChainFactory instance configured to use the provided JSON model.
         """
-        return ChainFactory(dict[str, object]).use_json_model(json_model)
+        return ChainFactory(dict[str, object]).use_structured_output(json_model)
 
     @staticmethod
-    def for_rag_with_sources(
-        json_model: type[BaseModel] | None = None,
-    ) -> "ChainFactory[dict[str, object]]":
+    def for_rag_with_sources() -> "ChainFactory[dict[str, object],None]":
         """
         Creates a ChainFactory instance based on a given JSON model.
 
@@ -120,8 +119,8 @@ class ChainFactory(Generic[ChainOutputVar]):
             .use_rag(True)
             .use_rag_returning_sources(True)
         )
-        if json_model:
-            result.use_json_model(json_model)
+        # if json_model:
+        #     result.use_structured_output(json_model)
         return result
 
     def __fail(self, message: str) -> Exception:
@@ -246,6 +245,24 @@ class ChainFactory(Generic[ChainOutputVar]):
         return self.__param_format_instructions
 
     @property
+    def structured_output_model(self) -> type[ModelTypeVar] | None:
+        """
+        Gets the structured output model.
+
+        :return: The current Pydantic BaseModel class for structured output or None if not set.
+        """
+        return self.__structured_output_model
+
+    @property
+    def strategy(self) -> Strategy | None:
+        """
+        Gets the strategy instance.
+
+        :return: The current instance of Strategy or None if not set.
+        """
+        return self.__strategy
+
+    @property
     def input_transformer(self) -> Runnable[ChainInputType, dict]:
         """
         Gets the input transformer instance.
@@ -272,9 +289,13 @@ class ChainFactory(Generic[ChainOutputVar]):
 
         output_transformer = self.output_transformer
 
-        if self.__json_model and isinstance(output_transformer, JsonOutputParser):
+        if self.__structured_output_model and isinstance(
+            output_transformer, JsonOutputParser
+        ):
             # Adds format instructions for JSON model if applicable
-            self.__logger.debug("Building chain with JSON model: %s", self.__json_model)
+            self.__logger.debug(
+                "Building chain with JSON model: %s", self.__structured_output_model
+            )
             additional_values[self.format_instructions_param] = (
                 output_transformer.get_format_instructions()
             )
@@ -332,7 +353,7 @@ class ChainFactory(Generic[ChainOutputVar]):
         """
         if self.__out_transf:
             return self.__out_transf
-        if self.__json_model is None:
+        if self.__structured_output_model is None:
             self.use_output_transformer(
                 cast(
                     Runnable[LanguageModelOutput, ChainOutputVar],
@@ -616,22 +637,22 @@ class ChainFactory(Generic[ChainOutputVar]):
         self.__prompt_template = prompt_template
         return self
 
-    def use_json_model(self, model: type[BaseModel]) -> Self:
+    def use_structured_output(self, model: type[ModelTypeVar]) -> Self:
         """
         Sets the JSON model for output parsing.
 
         :param model: A Pydantic BaseModel class to parse the output into.
         :return: The ChainFactory instance for method chaining.
         """
-        self.__json_model = model
+        self.__structured_output_model = model
         self.use_output_transformer(
             cast(
                 Runnable[LanguageModelOutput, ChainOutputVar],
-                JsonOutputParser(pydantic_object=self.__json_model),
+                JsonOutputParser(pydantic_object=self.__structured_output_model),
             )
         )
         self.__logger.debug(
-            "Setting JSON model for output parsing: %s", self.__json_model
+            "Setting JSON model for output parsing: %s", self.__structured_output_model
         )
         return self
 
@@ -925,7 +946,7 @@ class ChainFactory(Generic[ChainOutputVar]):
     ) -> Runnable[ChainInputType, ChainOutputVar]:
         if (
             self.__rag_return_sources_formatted_as_string
-            and self.__json_model is not None
+            and self.__structured_output_model is not None
         ):
             raise self.__fail(
                 "Cannot combine returning sources formatted as string with JSON model output."

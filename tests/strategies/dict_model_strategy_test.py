@@ -9,6 +9,7 @@ from pydantic import BaseModel
 import pytest
 from pytest_mock import MockFixture
 
+from quick_llm import ChainFactory
 from quick_llm.strategies import DictModelStrategy
 
 
@@ -52,8 +53,13 @@ class TestAdaptLLM:
         mocked_llm = mocker.MagicMock(spec=FakeListLLM)
         # Configure the mock to return our structured_llm when with_structured_output is called with include_raw=True
         mocked_llm.with_structured_output.return_value = structured_llm
+        factory = (
+            ChainFactory(dict)
+            .use_language_model(mocked_llm)
+            .use_structured_output(model)
+        )
 
-        strategy = DictModelStrategy(model, mocked_llm)  # pyright: ignore[reportArgumentType]
+        strategy = DictModelStrategy(factory)  # pyright: ignore[reportArgumentType]
         runner = strategy.adapt_llm()
 
         structured_result = structured_llm.invoke("Test prompt 1")
@@ -113,7 +119,12 @@ class TestAdaptLLM:
         base_llm = FakeListChatModel(
             responses=['{"answer": "Answer 1"}', '{"answer": "Answer 2"}']
         )
-        strategy = DictModelStrategy(model, base_llm)  # pyright: ignore[reportArgumentType]
+        factory = (
+            ChainFactory(model)
+            .use_language_model(base_llm)
+            .use_structured_output(model)
+        )
+        strategy = DictModelStrategy(factory)  # pyright: ignore[reportArgumentType]
         runner = strategy.adapt_llm()
 
         return [runner.invoke("Test prompt 1"), runner.invoke("Test prompt 2")]

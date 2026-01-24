@@ -18,12 +18,12 @@ class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[ModelTypeVar, d
 
     @override
     def adapt_llm(self) -> Runnable[LanguageModelInput, dict]:
-        if isinstance(self._model, BaseLanguageModel):
+        if isinstance(self.model, BaseLanguageModel):
             self._model_supports_structured_output = False
             try:
-                model: Runnable[LanguageModelInput, dict] = (  # pyright: ignore[reportAssignmentType]
-                    self._model.with_structured_output(
-                        self._model_type_reference, include_raw=True
+                adapted_model: Runnable[LanguageModelInput, dict] = (  # pyright: ignore[reportAssignmentType]
+                    self.model.with_structured_output(
+                        self.structured_output_model, include_raw=True
                     )
                 )
                 self._model_supports_structured_output = True
@@ -31,7 +31,7 @@ class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[ModelTypeVar, d
                 def get_raw(result: dict) -> dict:
                     return cast(dict, result.get("raw", {}))
 
-                return model | RunnableLambda(get_raw) | self.dict_parser
+                return adapted_model | RunnableLambda(get_raw) | self.dict_parser
             except NotImplementedError:
                 self._model_supports_structured_output = False
-        return self._model | self.dict_parser
+        return self.model | self.dict_parser
