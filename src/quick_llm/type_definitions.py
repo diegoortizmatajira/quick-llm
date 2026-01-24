@@ -13,7 +13,7 @@ ChainInputType = str | dict | BaseModel | Sequence[MessageLikeRepresentation]
 ChainOutputVar = TypeVar("ChainOutputVar")
 PromptOutputVar = TypeVar("PromptOutputVar", bound=LanguageModelInput)
 LanguageModelOutputVar = TypeVar("LanguageModelOutputVar", str, dict, BaseModel, None)
-ModelTypeVar = TypeVar("ModelTypeVar", BaseModel, dict, None)
+ModelTypeVar = TypeVar("ModelTypeVar", str, dict, BaseModel, None)
 
 
 class Strategy(ABC, Generic[LanguageModelOutputVar]):

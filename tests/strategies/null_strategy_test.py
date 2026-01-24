@@ -1,14 +1,13 @@
-"""Tests for the TextStrategy class in quick_llm.strategies.text_strategy."""
-
 from langchain_core.language_models import (
     FakeListChatModel,
     FakeListLLM,
     LanguageModelLike,
 )
+from langchain_core.messages import BaseMessage
 import pytest
 
 from quick_llm import ChainFactory
-from quick_llm.strategies import TextStrategy
+from quick_llm.strategies import NullStrategy
 
 
 TEST_INPUT = "Test input"
@@ -22,7 +21,7 @@ TEST_EXPECTED_RESPONSE = "This is a sample response."
         FakeListLLM(responses=[TEST_EXPECTED_RESPONSE]),
     ],
 )
-def test_text_strategy(llm: LanguageModelLike):
+def test_null_strategy(llm: LanguageModelLike):
     """
     Test the TextStrategy with various language models.
 
@@ -33,9 +32,12 @@ def test_text_strategy(llm: LanguageModelLike):
         - The response is a string.
         - The response matches the expected response.
     """
+    control_response = llm.invoke(TEST_INPUT)
     factory = ChainFactory(str).use_language_model(llm)
-    strategy = TextStrategy(factory)
+    strategy = NullStrategy(factory)
     runner = strategy.adapt_llm()
     response = runner.invoke(TEST_INPUT)
-    assert isinstance(response, str)
-    assert response == TEST_EXPECTED_RESPONSE
+    if isinstance(response, BaseMessage) and isinstance(control_response, BaseMessage):
+        assert response.content == control_response.content
+    else:
+        assert response == control_response

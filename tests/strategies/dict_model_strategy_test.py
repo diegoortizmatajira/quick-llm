@@ -1,3 +1,5 @@
+"""Test suite for the DictModelStrategy in Quick LLM."""
+
 from typing import Callable, TypedDict
 from langchain_core.language_models import (
     FakeListChatModel,

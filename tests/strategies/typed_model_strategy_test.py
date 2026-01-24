@@ -1,3 +1,5 @@
+"""Test suite for the TypedModelStrategy in QuickLLM."""
+
 from typing import Callable, TypedDict
 from langchain_core.language_models import BaseChatModel, FakeListChatModel
 from pydantic import BaseModel
