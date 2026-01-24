@@ -11,9 +11,13 @@ dependencies = [
     "pydantic>=2.12.5",
 ]
 
-[tool.pylint]
+[tool.pylint.MASTER]
 ignore = [".env", "venv", ".venv", "build", "dist"]
-init-hook = "import sys; sys.path.insert(0, 'src')"
+init-hook = """
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path('src').resolve()))
+sys.path.insert(0, str(pathlib.Path('tests').resolve()))
+"""
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

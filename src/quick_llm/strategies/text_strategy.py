@@ -1,0 +1,50 @@
+"""A strategy module for handling string-based outputs from language models."""
+
+from typing import cast, override
+
+from langchain_core.language_models import (
+    LanguageModelInput,
+    LanguageModelOutput,
+)
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import Runnable
+from .base_strategy import BaseStrategy
+
+
+class TextStrategy(BaseStrategy[str]):
+    """A strategy for handling and adapting text-based outputs.
+
+    This class extends the BaseStrategy specifically for string
+    outputs and provides mechanisms to adapt a language model
+    to handle these outputs as well as parse them.
+    """
+
+    @override
+    @override
+    def adapt_llm(self) -> Runnable[LanguageModelInput, str]:
+        """Adapts the language model to produce string-based outputs.
+
+        This method chains the language model with a text parser to generate
+        outputs that are specifically in string format.
+
+        Returns:
+            Runnable: A runnable instance that processes LanguageModelInput
+            to produce a string output.
+        """
+        return (
+            cast(Runnable[LanguageModelInput, LanguageModelOutput], self._model)
+            | self.text_parser
+        )
+
+    @property
+    def text_parser(self) -> Runnable[LanguageModelOutput, str]:
+        """Provides a text output parser for the language model.
+
+        This property returns a Runnable instance that processes the raw language
+        model output into a string format using the StrOutputParser.
+
+        Returns:
+            Runnable: An instance of StrOutputParser to convert LanguageModelOutput
+            into a string output.
+        """
+        return StrOutputParser()

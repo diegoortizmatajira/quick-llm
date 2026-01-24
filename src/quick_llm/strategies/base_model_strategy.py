@@ -5,7 +5,7 @@ from langchain_core.language_models import LanguageModelLike
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
-from quick_llm.strategies.base_strategy import BaseStrategy, transparent_runner
+from .base_strategy import BaseStrategy
 
 
 ModelTypeVar = TypeVar("ModelTypeVar", BaseModel, dict)
@@ -22,10 +22,9 @@ class BaseModelStrategy(
     def __init__(
         self, model_type_reference: type[ModelTypeVar], model: LanguageModelLike
     ):
-        super().__init__()
+        super().__init__(model)
         self._model_type_reference = model_type_reference
         self._model_supports_structured_output: bool = False
-        self._model: LanguageModelLike = model
 
     @property
     def dict_parser(self) -> Runnable[dict, dict]:

@@ -3,6 +3,7 @@ from typing import Generic, TypeVar
 
 from langchain_core.language_models import (
     LanguageModelInput,
+    LanguageModelLike,
 )
 from langchain_core.runnables import Runnable, RunnableLambda
 from pydantic import BaseModel
@@ -34,7 +35,8 @@ class BaseStrategy(ABC, Generic[LanguageModelOutput]):
         be a string, dictionary, or Pydantic model.
     """
 
-    def __init__(self):
+    def __init__(self, model: LanguageModelLike):
+        self._model: LanguageModelLike = model
         self.__adapted_llm: Runnable[LanguageModelInput, LanguageModelOutput] | None = (
             None
         )

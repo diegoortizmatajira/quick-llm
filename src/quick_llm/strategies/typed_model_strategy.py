@@ -9,8 +9,8 @@ from langchain_core.language_models import (
 from langchain_core.runnables import Runnable, RunnableLambda
 from pydantic import BaseModel
 
-from quick_llm.strategies.base_model_strategy import BaseModelStrategy, ModelTypeVar
-from quick_llm.strategies.base_strategy import transparent_runner
+from .base_model_strategy import BaseModelStrategy, ModelTypeVar
+from .base_strategy import transparent_runner
 
 
 class TypedModelStrategy(

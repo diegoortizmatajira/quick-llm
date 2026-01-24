@@ -8,7 +8,7 @@ from langchain_core.language_models import (
 )
 from langchain_core.runnables import Runnable, RunnableLambda
 
-from quick_llm.strategies.base_model_strategy import BaseModelStrategy, ModelTypeVar
+from .base_model_strategy import BaseModelStrategy, ModelTypeVar
 
 
 class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[ModelTypeVar, dict]):
