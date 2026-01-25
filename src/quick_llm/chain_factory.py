@@ -1,6 +1,7 @@
 """Factory class for managing language model instances."""
 
 import logging
+import importlib.util
 from typing import (
     AsyncIterator,
     Callable,
@@ -189,7 +190,9 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                 self.__logger.debug(f"{caption}: %s", self.get_readable_value(item))
                 yield item
 
-        return RunnableGenerator(output_collector, aoutput_collector)
+        return RunnableGenerator(
+            output_collector, aoutput_collector, name=f"{caption} output Logger"
+        )
 
     def wrap[Input, Output](
         self, runnable: Runnable[Input, Output], caption: str
@@ -304,7 +307,9 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             )
 
         # Returns an injector for additional values
-        return RunnableLambda[dict, dict](lambda x: {**x, **additional_values}, name="Additional Values Injector")
+        return RunnableLambda[dict, dict](
+            lambda x: {**x, **additional_values}, name="Additional Values Injector"
+        )
 
     @property
     def output_cleaner(
@@ -340,7 +345,9 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             async for item in output_values:
                 yield clean_item(item)
 
-        return RunnableGenerator(clean_generator, aclean_generator, name="Default Output Cleaner")
+        return RunnableGenerator(
+            clean_generator, aclean_generator, name="Default Output Cleaner"
+        )
 
     @property
     def output_transformer(
@@ -652,7 +659,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                 Runnable[LanguageModelOutput, ChainOutputVar],
                 JsonOutputParser(
                     pydantic_object=self.__structured_output_model,
-                    name=f"OutputParser for {self.structured_output_model}",
+                    name=f"Json outputParser for {self.structured_output_model}",
                 ),
             )
         )
@@ -898,6 +905,23 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             text_splitter=self.text_splitter,
         )
 
+    def __pretty_runnable(self, runnable: Runnable) -> str:
+        """
+        Generates a pretty string representation of a Runnable chain.
+
+        :param runnable: The Runnable instance to be represented.
+        :return: A string representation of the Runnable chain.
+        """
+        # Check if "grandalf" is installed for ASCII graph drawing
+        if importlib.util.find_spec("grandalf") is None:
+            self.__logger.warning(
+                "'grandalf' package not found. Install it to see the chain graph."
+            )
+            return str(runnable)
+
+        graph = runnable.get_graph()
+        return "\n" + graph.draw_ascii()
+
     def __build_without_rag(
         self,
     ) -> Runnable[ChainInputType, ChainOutputVar]:
@@ -921,7 +945,9 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             | self.wrap(self.output_cleaner, "Output Cleaner")
             | self.wrap(self.output_transformer, "Output Transformer")
         )
-        self.__logger.debug("Built chain without RAG components: %s", chain)
+        self.__logger.debug(
+            "Built chain without RAG components: %s", self.__pretty_runnable(chain)
+        )
         return chain
 
     def __build_with_rag(self) -> Runnable[ChainInputType, ChainOutputVar]:
@@ -944,7 +970,9 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             | self.wrap(self.output_cleaner, "Output Cleaner")
             | self.wrap(self.output_transformer, "Output Transformer")
         )
-        self.__logger.debug("Built chain with RAG components: %s", chain)
+        self.__logger.debug(
+            "Built chain with RAG components: %s", self.__pretty_runnable(chain)
+        )
         return chain
 
     def __build_with_rag_with_sources(
@@ -1006,7 +1034,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                 self.final_answer_formatter, "Final Answer Formatter"
             )
         self.__logger.debug(
-            "Built chain with RAG components and document references: %s", chain
+            "Built chain with RAG components and document references: %s",
+            self.__pretty_runnable(chain),
         )
         # INFO: uses a cast to avoid LSP error about incompatible types
         return cast(Runnable[ChainInputType, ChainOutputVar], chain)

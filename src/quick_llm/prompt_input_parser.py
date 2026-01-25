@@ -20,7 +20,7 @@ class PromptInputParser(RunnableGenerator[ChainInputType, dict]):
     """
 
     def __init__(self, prompt_input_param: str):
-        super().__init__(self.input_parser, self.ainput_parser, name="Prompt Input Parser")
+        super().__init__(self.input_parser, self.ainput_parser, name="Input Parser")
         self.prompt_input_param = prompt_input_param
 
     def transform_value(self, value: ChainInputType) -> dict:
