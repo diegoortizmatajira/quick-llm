@@ -1,26 +1,18 @@
 """Test suite for the DictModelStrategy in Quick LLM."""
 
-from typing import Callable, TypedDict
+from typing import Callable
 from langchain_core.language_models import (
     FakeListChatModel,
     FakeListLLM,
     LanguageModelInput,
 )
 from langchain_core.runnables import RunnableLambda
-from pydantic import BaseModel
 import pytest
 from pytest_mock import MockFixture
 
 from quick_llm import ChainFactory
 from quick_llm.strategies import DictModelStrategy
-
-
-class TestOutput(BaseModel):
-    answer: str
-
-
-class TestOutputDictionary(TypedDict):
-    answer: str
+from ..test_models import TestOutput, TestOutputDictionary
 
 
 class TestAdaptLLM:
