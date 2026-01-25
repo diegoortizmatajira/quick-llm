@@ -3,6 +3,8 @@
 import json
 from typing import cast
 
+from langchain_core.prompt_values import ChatPromptValue, StringPromptValue
+from langchain_core.prompts.chat import ChatPromptTemplate, MessagePromptTemplateT
 from langchain_text_splitters import RecursiveCharacterTextSplitter, TokenTextSplitter
 import pytest
 from langchain_core.documents import Document
@@ -14,7 +16,7 @@ from langchain_core.language_models import (
     LanguageModelLike,
     LanguageModelOutput,
 )
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.retrievers import RetrieverLike
 from langchain_core.runnables import RunnableLambda
 from langchain_core.vectorstores import InMemoryVectorStore
@@ -205,6 +207,49 @@ class TestBaseChains:
 
 class TestBaseSupportComponents:
     """Tests for the ChainFactory class support components"""
+
+    def test_string_prompt(self):
+        """Tests the prompt template component of the ChainFactory"""
+        factory = ChainFactory().use_prompt_template("Sample Prompt {input}")
+        prompt = factory.prompt_template
+        assert prompt is not None
+        rendered = prompt.invoke(
+            {
+                factory.input_param: TEST_INPUT,
+            }
+        )
+        assert isinstance(rendered, StringPromptValue)
+        assert rendered.text == f"Sample Prompt {TEST_INPUT}"
+
+    def test_custom_prompt(self):
+        """Tests the prompt template component of the ChainFactory"""
+        factory = (
+            ChainFactory()
+            .use_prompt_template(
+                ChatPromptTemplate(
+                    [
+                        ("system", "You are a helpful assistant."),
+                        ("human", "Sample Prompt {input}"),
+                    ],
+                    template_format="f-string",
+                )
+            )
+            .use_input_param("input")
+        )
+        prompt = factory.prompt_template
+        assert prompt is not None
+        assert isinstance(prompt, ChatPromptTemplate)
+        rendered = prompt.invoke(
+            {
+                factory.input_param: TEST_INPUT,
+            }
+        )
+        assert isinstance(rendered, ChatPromptValue)
+        assert len(rendered.messages) == 2
+        assert isinstance(rendered.messages[0], SystemMessage)
+        assert rendered.messages[0].content == "You are a helpful assistant."
+        assert isinstance(rendered.messages[1], HumanMessage)
+        assert rendered.messages[1].content == f"Sample Prompt {TEST_INPUT}"
 
     @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
     def test_input_transformer(self, input_value: ChainInputType):

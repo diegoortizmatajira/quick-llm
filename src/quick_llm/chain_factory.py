@@ -304,7 +304,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             )
 
         # Returns an injector for additional values
-        return RunnableLambda[dict, dict](lambda x: {**x, **additional_values})
+        return RunnableLambda[dict, dict](lambda x: {**x, **additional_values}, name="Additional Values Injector")
 
     @property
     def output_cleaner(
@@ -340,7 +340,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             async for item in output_values:
                 yield clean_item(item)
 
-        return RunnableGenerator(clean_generator, aclean_generator)
+        return RunnableGenerator(clean_generator, aclean_generator, name="Default Output Cleaner")
 
     @property
     def output_transformer(
@@ -357,7 +357,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             self.use_output_transformer(
                 cast(
                     Runnable[LanguageModelOutput, ChainOutputVar],
-                    StrOutputParser(),
+                    StrOutputParser(name="Text Output Parser"),
                 )
             )
             # Calls recursively to return the newly set transformer
@@ -430,7 +430,9 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             async for docs in input_docs:
                 yield format_docs(docs)
 
-        return RunnableGenerator(formatter_function, aformatter_function)
+        return RunnableGenerator(
+            formatter_function, aformatter_function, name="Document Formatter"
+        )
 
     @property
     def final_answer_formatter(self) -> Runnable[dict, str]:
@@ -467,7 +469,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             if references_text:
                 yield references_text
 
-        return RunnableGenerator(formatter, aformatter)
+        return RunnableGenerator(formatter, aformatter, name="Final Answer Formatter")
 
     @property
     def answer_key(self) -> str:
@@ -648,7 +650,10 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         self.use_output_transformer(
             cast(
                 Runnable[LanguageModelOutput, ChainOutputVar],
-                JsonOutputParser(pydantic_object=self.__structured_output_model),
+                JsonOutputParser(
+                    pydantic_object=self.__structured_output_model,
+                    name=f"OutputParser for {self.structured_output_model}",
+                ),
             )
         )
         self.__logger.debug(
@@ -693,7 +698,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         if isinstance(output_parser, Callable):
-            output_parser = RunnableLambda(output_parser)
+            output_parser = RunnableLambda(output_parser, name="Custom Output Parser")
         self.__out_transf = output_parser
         self.__logger.debug("Setting output transformer: %s", self.__out_transf)
         return self
@@ -930,7 +935,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                     | self.wrap(self.retriever, "Retriever")
                     # Formats the documents into a single string
                     | self.wrap(self.document_formatter, "Document Formatter")
-                }  # type: ignore
+                },  # type: ignore
+                name="Retrieve and Format Documents",
             )
             | self.wrap(self.additional_values_injector, "Additional Values Injector")
             | self.wrap(self.prompt_template, "Prompt Template")
@@ -960,7 +966,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                     self.__source_documents_key: self.__retrieval_query_builder
                     # Retrieves the documents
                     | self.wrap(self.retriever, "Retriever")
-                }  # type: ignore
+                },  # type: ignore
+                name="Retrieve Documents",
             )
             # Builds the answer value by executing the RAG
             | RunnableAssign(
@@ -977,7 +984,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                                         self.document_formatter, "Document Formatter"
                                     )
                                 ),
-                            }  # type: ignore
+                            },  # type: ignore
+                            name="Build Context from Retrieved Documents",
                         )
                         | self.wrap(
                             self.additional_values_injector,
@@ -988,7 +996,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                         | self.wrap(self.output_cleaner, "Output Cleaner")
                         | self.wrap(self.output_transformer, "Output Transformer")
                     )
-                }
+                },
+                name="Generate Answer along with Sources",
             )
         )
         if self.__rag_return_sources_formatted_as_string:
