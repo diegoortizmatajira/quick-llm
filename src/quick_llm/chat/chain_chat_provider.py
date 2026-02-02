@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts.chat import MessageLike
 from langchain_core.runnables import Runnable
 
-from ..type_definitions import ChainInputType
+from ..support import ChainInputType
 from .chat_provider import (
     ChatInputTransformer,
     ChatInputType,

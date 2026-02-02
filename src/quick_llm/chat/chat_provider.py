@@ -6,7 +6,7 @@ from typing import Any, Callable, Iterable, Iterator
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts.chat import MessageLike
 
-from ..type_definitions import ChainInputType
+from ..support import ChainInputType
 
 
 ChatInputType = MessageLike | Iterable[MessageLike]
@@ -15,7 +15,9 @@ ChatOutputTransformer = Callable[[Any], BaseMessage]
 
 
 class ChatProvider[ABC]:
-    """Represents an abstract class that defines the expected behavior of a chat provider adapter."""
+    """
+    Represents an abstract class that defines the expected behavior of a chat provider adapter.
+    """
 
     @abstractmethod
     def send(self, message: ChatInputType) -> BaseMessage:

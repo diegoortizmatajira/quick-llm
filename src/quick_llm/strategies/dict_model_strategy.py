@@ -8,7 +8,9 @@ from langchain_core.language_models import (
 )
 from langchain_core.runnables import Runnable, RunnableLambda
 
-from .base_model_strategy import BaseModelStrategy, ModelTypeVar
+from quick_llm.support import ModelTypeVar
+
+from .base_model_strategy import BaseModelStrategy
 
 
 class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[dict, ModelTypeVar]):
@@ -21,11 +23,11 @@ class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[dict, ModelType
         if isinstance(self.model, BaseLanguageModel):
             self._model_supports_structured_output = False
             try:
-                adapted_model: Runnable[LanguageModelInput, dict] = (  # pyright: ignore[reportAssignmentType]
+                adapted_model: Runnable[LanguageModelInput, dict] = (
                     self.model.with_structured_output(
                         self.structured_output_model, include_raw=True
                     )
-                )
+                )  # pyright: ignore[reportAssignmentType]
                 self._model_supports_structured_output = True
 
                 def get_raw(result: dict) -> dict:

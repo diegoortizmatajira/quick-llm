@@ -5,8 +5,8 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
-from quick_llm import ChainFactory
-from quick_llm.type_definitions import ModelTypeVar
+from ..factory import ChainFactory
+from ..support import ModelTypeVar
 from .base_strategy import BaseStrategy
 
 

@@ -1,63 +1,50 @@
 """Factory class for managing language model instances."""
 
-import logging
-import importlib.util
 from typing import (
     AsyncIterator,
     Callable,
-    Generic,
     Iterator,
     Self,
     cast,
     overload,
+    override,
 )
 
-from langchain.chat_models import init_chat_model
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import (
-    LanguageModelLike,
     LanguageModelOutput,
 )
 from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
-from langchain_core.prompt_values import PromptValue
-from langchain_core.prompts import BasePromptTemplate, PromptTemplate
-from langchain_core.prompts.string import PromptTemplateFormat
-from langchain_core.retrievers import RetrieverLike
 from langchain_core.runnables import (
     Runnable,
     RunnableAssign,
     RunnableGenerator,
     RunnableLambda,
 )
-from langchain_core.vectorstores import VectorStore
-from langchain_text_splitters import (
-    RecursiveCharacterTextSplitter,
-    TextSplitter,
-    TokenTextSplitter,
-)
-from pydantic import BaseModel
 
-from .prompt_input_parser import PromptInputParser
-from .rag_document_ingestor import RagDocumentIngestor
-from .type_definitions import ChainInputType, ChainOutputVar, ModelTypeVar, Strategy
+from ..support import (
+    PromptInputParser,
+    ChainInputType,
+    ChainOutputVar,
+    ModelTypeVar,
+    Strategy,
+)
+from .base_factory import BaseFactory
 
 
 # pylint: disable=too-many-instance-attributes disable=too-many-public-methods
-class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
+class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
     """Factory class for managing language model instances."""
 
     def __init__(
         self,
         output_type: type[ChainOutputVar] = str,
     ) -> None:
-        # Logger setup
-        self.__logger = logging.getLogger(__name__)
-        self.__detailed_logging: bool = False
+        super().__init__(output_type=output_type)
         # Transformers (Input/Output)
-        self.__in_transf: Runnable[ChainInputType, dict] | None = None
-        self.__out_transf: Runnable[LanguageModelOutput, ChainOutputVar] | None = None
+        self._in_transf: Runnable[ChainInputType, dict] | None = None
+        self._out_transf: Runnable[LanguageModelOutput, ChainOutputVar] | None = None
         # Customizable behaviors
         self.__strategy: Strategy | None = None
         self.__out_cleaner: Callable[[str], str] = self.default_cleaner_function
@@ -70,14 +57,6 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         self.__doc_refs_formatter: Callable[[list[Document]], str] = (
             self.default_references_formatter
         )
-        # LLM components
-        self.__language_model: LanguageModelLike | None = None
-        self.__prompt_template: BasePromptTemplate[PromptValue] | None = None
-        # RAG components
-        self.__text_splitter: TextSplitter | None = None
-        self.__embeddings: Embeddings | None = None
-        self.__vector_store: VectorStore | None = None
-        self.__retriever: RetrieverLike | None = None
         # Parameter names
         self.__param_input: str = "input"
         self.__param_format_instructions: str = "format_instructions"
@@ -88,12 +67,9 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         # JSON model for output parsing
         self.__structured_output_model: type[ModelTypeVar] | None = None
         # usage flags
-        self.__use_rag: bool = False
         self.__rag_return_sources: bool = False
         self.__rag_return_sources_formatted_as_string: bool = False
-        self.__logger.debug(
-            "Initialized ChainFactory with output type: %s", output_type
-        )
+        self._logger.debug("Initialized ChainFactory with output type: %s", output_type)
 
     @staticmethod
     def for_structured_output(
@@ -115,18 +91,10 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :param json_model: A Pydantic BaseModel class that will be used to interpret JSON outputs.
         :return: A ChainFactory instance configured to use the provided JSON model.
         """
-        result = (
-            ChainFactory(dict[str, object])
-            .use_rag(True)
-            .use_rag_returning_sources(True)
-        )
+        result = ChainFactory(dict[str, object]).use_rag_returning_sources(True)
         # if json_model:
         #     result.use_structured_output(json_model)
         return result
-
-    def __fail(self, message: str) -> Exception:
-        self.__logger.error(message)
-        return RuntimeError(message)
 
     def default_cleaner_function(self, text: str) -> str:
         """
@@ -160,75 +128,6 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             ]
         )
 
-    @staticmethod
-    def get_readable_value(value: object) -> object:
-        """
-        Converts the input object into a human-readable format.
-
-        :param value: The object to be converted. This can be a BaseMessage, BaseModel, or other types.
-        :return: A human-readable representation of the object.
-        """
-        # WARN: If there are non-serializable objects, this method should be updated to handle them or it will fail
-        if isinstance(value, BaseMessage):
-            return value.model_dump_json(indent=2)
-        if isinstance(value, BaseModel):
-            return value.model_dump_json(indent=2)
-        # elif isinstance(value, dict):
-        #     return json.dumps(value, indent=2)
-        return value
-
-    def passthrough_logger[T](self, caption: str) -> Runnable[T, T]:
-        """Captures the outputs and logs it. It is included in the default implementation of `wrap_chain` method"""
-
-        def output_collector(output: Iterator[T]) -> Iterator[T]:
-            for item in output:
-                self.__logger.debug(f"{caption}: %s", self.get_readable_value(item))
-                yield item
-
-        async def aoutput_collector(output: AsyncIterator[T]) -> AsyncIterator[T]:
-            async for item in output:
-                self.__logger.debug(f"{caption}: %s", self.get_readable_value(item))
-                yield item
-
-        return RunnableGenerator(
-            output_collector, aoutput_collector, name=f"{caption} output Logger"
-        )
-
-    def wrap[Input, Output](
-        self, runnable: Runnable[Input, Output], caption: str
-    ) -> Runnable[Input, Output]:
-        """
-        Wraps a runnable with detailed logging if enabled.
-
-        :param runnable: The runnable to be wrapped.
-        :return: The wrapped runnable with logging if detailed logging is enabled.
-        """
-        if self.__detailed_logging:
-            return runnable | self.passthrough_logger(caption)
-        return runnable
-
-    @property
-    def language_model(self) -> LanguageModelLike:
-        """
-        Gets the language model instance.
-
-        :return: The current instance of BaseLanguageModel or None if not set.
-        """
-        if self.__language_model is None:
-            raise self.__fail("Language model is not set.")
-        return self.__language_model
-
-    @property
-    def prompt_template(self) -> BasePromptTemplate[PromptValue]:
-        """
-        Gets the prompt template instance.
-
-        :return: The current instance of PromptTemplate or None if not set.
-        """
-        if self.__prompt_template is None:
-            raise self.__fail("Prompt template is not set.")
-        return self.__prompt_template
-
     @property
     def input_param(self) -> str:
         """
@@ -257,12 +156,14 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         return self.__structured_output_model
 
     @property
-    def strategy(self) -> Strategy | None:
+    def strategy(self) -> Strategy:
         """
         Gets the strategy instance.
 
         :return: The current instance of Strategy or None if not set.
         """
+        if self.__strategy is None:
+            raise self._fail("Strategy is not set.")
         return self.__strategy
 
     @property
@@ -272,19 +173,31 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
 
         :return: The current instance of Runnable for input transformation.
         """
-        if self.__in_transf is None:
-            self.__in_transf = PromptInputParser(self.__param_input)
-        return self.__in_transf
+        if self._in_transf is None:
+            self._in_transf = PromptInputParser(self.__param_input)
+        return self._in_transf
+
+    @property
+    def uses_rag(self) -> bool:
+        """
+        Indicates whether Retrieval-Augmented Generation (RAG) is enabled.
+
+        :return: True if RAG is enabled, False otherwise.
+        """
+        return self._retriever is not None
 
     @property
     def additional_values_injector(self) -> Runnable[dict, dict]:
         """
-        Provides a lambda function that injects additional values into the existing input dictionary.
+        Provides a lambda function that injects additional values into the
+        existing input dictionary.
 
-        This method creates a dictionary of additional values to be passed into the chain. If the JSON model
-        is being used and the output transformer is of the type JsonOutputParser, it adds format instructions
-        specific to the JSON model to the `additional_values` dictionary. The lambda function merges the
-        existing input dictionary with these additional values.
+        This method creates a dictionary of additional values to be passed into
+        the chain. If the JSON model is being used and the output transformer
+        is of the type JsonOutputParser, it adds format instructions specific
+        to the JSON model to the `additional_values` dictionary. The lambda
+        function merges the existing input dictionary with these additional
+        values.
 
         :return: A Runnable instance that injects additional values into the input dictionary.
         """
@@ -296,13 +209,13 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             output_transformer, JsonOutputParser
         ):
             # Adds format instructions for JSON model if applicable
-            self.__logger.debug(
+            self._logger.debug(
                 "Building chain with JSON model: %s", self.__structured_output_model
             )
             additional_values[self.format_instructions_param] = (
                 output_transformer.get_format_instructions()
             )
-            self.__logger.debug(
+            self._logger.debug(
                 "Added format instructions to chain: %s", additional_values
             )
 
@@ -358,8 +271,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
 
         :return: The current instance of Runnable for output transformation.
         """
-        if self.__out_transf:
-            return self.__out_transf
+        if self._out_transf:
+            return self._out_transf
         if self.__structured_output_model is None:
             self.use_output_transformer(
                 cast(
@@ -370,51 +283,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             # Calls recursively to return the newly set transformer
             return self.output_transformer
 
-        raise self.__fail("Output transformer is not set.")
-
-    @property
-    def text_splitter(self) -> TextSplitter:
-        """
-        Gets the text splitter instance.
-
-        :return: The current instance of TextSplitter.
-        """
-        if self.__text_splitter is None:
-            raise self.__fail("Text splitter is not set.")
-        return self.__text_splitter
-
-    @property
-    def embeddings(self) -> Embeddings:
-        """
-        Gets the embeddings instance.
-
-        :return: The current instance of Embeddings.
-        """
-        if self.__embeddings is None:
-            raise self.__fail("Embeddings are not set.")
-        return self.__embeddings
-
-    @property
-    def vector_store(self) -> VectorStore:
-        """
-        Gets the vector store instance.
-
-        :return: The current instance of VectorStore.
-        """
-        if self.__vector_store is None:
-            raise self.__fail("Vector store is not set.")
-        return self.__vector_store
-
-    @property
-    def retriever(self) -> RetrieverLike:
-        """
-        Gets the retriever instance.
-
-        :return: The current instance of RetrieverLike.
-        """
-        if self.__retriever is None:
-            raise self.__fail("Retriever is not set.")
-        return self.__retriever
+        raise self._fail("Output transformer is not set.")
 
     @property
     def document_formatter(self) -> Runnable[list[Document], str]:
@@ -424,7 +293,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
 
         def format_docs(docs: list[Document]) -> str:
             for i, doc in enumerate(docs):
-                self.__logger.debug("Recovered document (%d): %s", i, doc)
+                self._logger.debug("Recovered document (%d): %s", i, doc)
             return self.__ctx_formatter(docs)
 
         def formatter_function(input_docs: Iterator[list[Document]]) -> Iterator[str]:
@@ -454,7 +323,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                 # If the answer contains the answer key, then it streams its content
                 if answer.get(self.__answer_key, None):
                     yield answer[self.__answer_key]
-                # If the answer contains the documents key, keep it until it finishes streaming the answer
+                # If the answer contains the documents key, keep it until it
+                # finishes streaming the answer
                 if answer.get(self.__source_documents_key, None):
                     docs = cast(list[Document], answer[self.__source_documents_key])
                     references_text = self.__doc_refs_formatter(docs)
@@ -468,7 +338,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                 # If the answer contains the answer key, then it streams its content
                 if answer.get(self.__answer_key, None):
                     yield answer[self.__answer_key]
-                # If the answer contains the documents key, keep it until it finishes streaming the answer
+                # If the answer contains the documents key, keep it until it
+                # finishes streaming the answer
                 if answer.get(self.__source_documents_key, None):
                     docs = cast(list[Document], answer[self.__source_documents_key])
                     references_text = self.__doc_refs_formatter(docs)
@@ -496,55 +367,6 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         """
         return self.__source_documents_key
 
-    def use(self, visitor: Callable[[Self], None]) -> Self:
-        """
-        Applies a visitor function to the ChainFactory instance.
-
-        :param visitor: A callable that takes a ChainFactory instance and returns None.
-        :return: The ChainFactory instance for method chaining.
-        """
-        self.__logger.debug("Applying visitor to ChainFactory")
-        visitor(self)
-        return self
-
-    def use_detailed_logging(self, enable: bool = True) -> Self:
-        """
-        Enables or disables detailed logging for the ChainFactory.
-
-        :param enable: A boolean flag to enable or disable detailed logging. Defaults to True.
-        :return: The ChainFactory instance for method chaining.
-        """
-        self.__detailed_logging = enable
-        self.__logger.debug("Setting detailed logging to %s", self.__detailed_logging)
-        return self
-
-    @overload
-    def use_language_model(self, model: LanguageModelLike) -> Self:
-        pass
-
-    @overload
-    def use_language_model(self, model: str, **kwargs) -> Self:
-        pass
-
-    def use_language_model(
-        self,
-        model: LanguageModelLike | str,
-        **kwargs,
-    ) -> Self:
-        """
-        Sets the language model instance.
-
-        :param language_model: An instance of BaseLanguageModel to set.
-        :return: The ChainFactory instance for method chaining.
-        """
-        if isinstance(model, str):
-            self.__language_model = init_chat_model(model, **kwargs)
-        else:
-            self.__language_model = model
-
-        self.__logger.debug("Setting language model: %s", self.__language_model)
-        return self
-
     def use_input_param(self, name: str = "input") -> Self:
         """
         Sets the name of the input parameter.
@@ -553,7 +375,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         self.__param_input = name
-        self.__logger.debug("Setting input parameter name to '%s'", self.__param_input)
+        self._logger.debug("Setting input parameter name to '%s'", self.__param_input)
         return self
 
     def use_format_instructions_param(self, name: str = "format_instructions") -> Self:
@@ -565,7 +387,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         self.__param_format_instructions = name
-        self.__logger.debug(
+        self._logger.debug(
             "Setting format instructions parameter name to '%s'",
             self.__param_format_instructions,
         )
@@ -579,7 +401,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         self.__param_context = name
-        self.__logger.debug(
+        self._logger.debug(
             "Setting context parameter name to '%s'", self.__param_context
         )
         return self
@@ -592,58 +414,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         self.__answer_key = name
-        self.__logger.debug("Setting answer key name to '%s'", self.__answer_key)
-        return self
-
-    @overload
-    def use_prompt_template(
-        self, prompt_template: BasePromptTemplate[PromptValue]
-    ) -> Self:
-        """
-        Sets the prompt template instance.
-
-        :param prompt_template: An instance of PromptTemplate to set.
-        :return: The ChainFactory instance for method chaining.
-        """
-
-    @overload
-    def use_prompt_template(
-        self,
-        prompt_template: str,
-        prompt_template_format: PromptTemplateFormat = "f-string",
-        partial_variables: dict[str, str] | None = None,
-    ) -> Self:
-        """
-        Sets the prompt template instance from a string.
-
-        :param prompt_template: A string representing the prompt template.
-        :param prompt_template_format: The format of the prompt template string.
-        :param partial_variables: A dictionary of partial variables for the prompt template.
-        :return: The ChainFactory instance for method chaining.
-        """
-
-    def use_prompt_template(
-        self,
-        prompt_template: str | BasePromptTemplate[PromptValue],
-        prompt_template_format: PromptTemplateFormat = "f-string",
-        partial_variables: dict[str, str] | None = None,
-    ) -> Self:
-        """
-        Sets the prompt template instance.
-        :param prompt_template: An instance of PromptTemplate or a string representing
-        the prompt template.
-        :param prompt_template_format: The format of the prompt template string.
-        :param partial_variables: A dictionary of partial variables for the prompt template.
-        :return: The ChainFactory instance for method chaining.
-        """
-        if isinstance(prompt_template, str):
-            # Creates a PromptTemplate from string
-            prompt_template = PromptTemplate.from_template(
-                template=prompt_template,
-                template_format=prompt_template_format,
-                partial_variables=partial_variables,
-            )
-        self.__prompt_template = prompt_template
+        self._logger.debug("Setting answer key name to '%s'", self.__answer_key)
         return self
 
     def use_structured_output(self, model: type[ModelTypeVar]) -> Self:
@@ -663,7 +434,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
                 ),
             )
         )
-        self.__logger.debug(
+        self._logger.debug(
             "Setting JSON model for output parsing: %s", self.__structured_output_model
         )
         return self
@@ -706,8 +477,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         """
         if isinstance(output_parser, Callable):
             output_parser = RunnableLambda(output_parser, name="Custom Output Parser")
-        self.__out_transf = output_parser
-        self.__logger.debug("Setting output transformer: %s", self.__out_transf)
+        self._out_transf = output_parser
+        self._logger.debug("Setting output transformer: %s", self._out_transf)
         return self
 
     def use_custom_output_cleaner(self, cleaner_function: Callable[[str], str]) -> Self:
@@ -718,7 +489,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         self.__out_cleaner = cleaner_function
-        self.__logger.debug("Setting custom output cleaner function.")
+        self._logger.debug("Setting custom output cleaner function.")
         return self
 
     def use_custom_context_formatter(
@@ -732,7 +503,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         self.__ctx_formatter = formatter_function
-        self.__logger.debug("Setting custom context formatter function.")
+        self._logger.debug("Setting custom context formatter function.")
         return self
 
     def use_custom_retrieval_query_builder(
@@ -746,181 +517,25 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
         :return: The ChainFactory instance for method chaining.
         """
         self.__retrieval_query_builder = query_builder_function
-        self.__logger.debug("Setting custom retrieval query builder function.")
-        return self
-
-    def use_text_splitter(self, text_splitter: TextSplitter) -> Self:
-        """
-        Sets the text splitter instance.
-
-        :param text_splitter: An instance of TextSplitter to set.
-        :return: The ChainFactory instance for method chaining.
-        """
-        self.__text_splitter = text_splitter
-        self.__logger.debug("Setting text splitter: %s", self.__text_splitter)
-        return self
-
-    def use_default_token_splitter(
-        self, chunk_size: int = 500, chunk_overlap: int = 50
-    ) -> Self:
-        """
-        Sets up a Token TextSplitter with the provided values or the default ones if omitted
-        """
-        self.__text_splitter = TokenTextSplitter(
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap
-        )
-        return self
-
-    def use_default_text_splitter(
-        self, chunk_size: int = 1000, chunk_overlap: int = 200
-    ) -> Self:
-        """
-        Sets up a Recursive TextSplitter with the provided values or the default ones if omitted
-        """
-        self.__text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap
-        )
-        return self
-
-    def use_rag(self, rag: bool) -> Self:
-        """
-        Enables or disables the use of Retrieval-Augmented Generation (RAG) in the chain.
-
-        :param rag: A boolean flag to enable or disable RAG.
-        :return: The ChainFactory instance for method chaining.
-        """
-        if self.__use_rag != rag:
-            self.__use_rag = rag
-            self.__logger.debug("Setting RAG usage to %s", self.__use_rag)
+        self._logger.debug("Setting custom retrieval query builder function.")
         return self
 
     def use_rag_returning_sources(
         self, returning_sources: bool, format_as_string: bool = False
     ) -> Self:
         """
-        Sets whether the RAG component should return source documents along with the generated answer.
+        Sets whether the RAG component should return source documents along
+        with the generated answer.
 
         :param returning_sources: A boolean flag to indicate if sources should be returned.
         :return: The ChainFactory instance for method chaining.
         """
-        self.use_rag(True)
         self.__rag_return_sources = returning_sources
         self.__rag_return_sources_formatted_as_string = format_as_string
-        self.__logger.debug(
+        self._logger.debug(
             "Setting RAG returning sources to %s", self.__rag_return_sources
         )
         return self
-
-    def use_embeddings(self, embeddings: Embeddings) -> Self:
-        """
-        Sets the embeddings instance.
-
-        :param embeddings: An instance of Embeddings to set.
-        :return: The ChainFactory instance for method chaining.
-        """
-        self.__embeddings = embeddings
-        self.__logger.debug("Setting embeddings: %s", self.__embeddings)
-        return self
-
-    def use_vector_store(self, vector_store: VectorStore) -> Self:
-        """
-        Sets the vector store instance and enables Retrieval-Augmented Generation (RAG).
-
-        By default, the vector store is also used as a retriever.
-
-        :param vector_store: An instance of VectorStore to set.
-        :return: The ChainFactory instance for method chaining.
-        """
-        self.use_rag(True)
-        self.__vector_store = vector_store
-        self.__logger.debug("Setting vector store: %s", self.__vector_store)
-        # By default, uses the vector store as retriever
-        self.__retriever = vector_store.as_retriever()
-        return self
-
-    @overload
-    def use_retriever(self, retriever: RetrieverLike) -> Self:
-        """
-        Sets the retriever instance.
-
-        :param retriever: An instance of RetrieverLike to set.
-        :return: The ChainFactory instance for method chaining.
-        """
-
-    @overload
-    def use_retriever(
-        self,
-        retriever: Callable[[LanguageModelLike, RetrieverLike | None], RetrieverLike],
-    ) -> Self:
-        """
-        Sets the retriever instance using a callable builder.
-        :param retriever: A callable that takes a LanguageModelLike instance and an optional existing retriever
-        to produce a new RetrieverLike instance.
-        :return: The ChainFactory instance for method chaining.
-        """
-
-    def use_retriever(
-        self,
-        retriever: RetrieverLike
-        | Callable[[LanguageModelLike, RetrieverLike | None], RetrieverLike]
-        | None = None,
-    ) -> Self:
-        """
-        Sets a custom retriever instance or builds one using the provided callable.
-
-        This method ensures retrieval-augmented generation (RAG) is enabled and assigns the retriever
-        provided. If the retriever is given as a callable, it evaluates the callable with the current
-        language model and the existing retriever (if any) to construct a new retriever.
-
-        :param retriever: Either a `RetrieverLike` instance or a callable that takes a `LanguageModelLike`
-        instance and an optional existing retriever to produce a new one.
-        :return: The ChainFactory instance for method chaining.
-        """
-        self.use_rag(True)
-        if isinstance(retriever, Callable):
-            retriever = retriever(self.language_model, self.__retriever)
-        self.__retriever = retriever
-        self.__logger.debug("Setting retriever: %s", self.__retriever)
-        return self
-
-    @property
-    def ingestor(self) -> RagDocumentIngestor:
-        """
-        Creates and returns an instance of RagDocumentIngestor.
-
-        This method initializes a RagDocumentIngestor using the currently set vector
-        store and text splitter. These components must be configured
-        prior to calling this method, otherwise, an error will be raised.
-
-        :return: A configured RagDocumentIngestor instance.
-        :raises RuntimeError: If either vector store or text splitter is not set.
-        """
-        self.__logger.debug("Creating RagDocumentIngestor")
-        if not self.__vector_store or not self.text_splitter:
-            raise self.__fail(
-                "Cannot create RagDocumentIngestor without vector store and text splitter."
-            )
-        return RagDocumentIngestor(
-            vector_store=self.vector_store,
-            text_splitter=self.text_splitter,
-        )
-
-    def __pretty_runnable(self, runnable: Runnable) -> str:
-        """
-        Generates a pretty string representation of a Runnable chain.
-
-        :param runnable: The Runnable instance to be represented.
-        :return: A string representation of the Runnable chain.
-        """
-        # Check if "grandalf" is installed for ASCII graph drawing
-        if importlib.util.find_spec("grandalf") is None:
-            self.__logger.warning(
-                "'grandalf' package not found. Install it to see the chain graph."
-            )
-            return str(runnable)
-
-        graph = runnable.get_graph()
-        return "\n" + graph.draw_ascii()
 
     def __build_without_rag(
         self,
@@ -937,16 +552,25 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
 
         :return: A Runnable instance representing the complete chain.
         """
+        # if self.__structured_output_model is None:
+        #     self.__strategy = TextStrategy(cast(ChainFactory[Any, None], self))
+        # else:
+        #     self.__strategy = DictModelStrategy(
+        #         cast(ChainFactory[Any, ModelTypeVar], self)
+        #     )
+        # adapted_language_model = self.strategy.adapted_llm
+
         chain = (
             self.wrap(self.input_transformer, "Input Transformer")
             | self.wrap(self.additional_values_injector, "Additional Values Injector")
             | self.wrap(self.prompt_template, "Prompt Template")
+            # | self.wrap(adapted_language_model, "Adapted Language Model")
             | self.wrap(self.language_model, "Language Model")
             | self.wrap(self.output_cleaner, "Output Cleaner")
             | self.wrap(self.output_transformer, "Output Transformer")
         )
-        self.__logger.debug(
-            "Built chain without RAG components: %s", self.__pretty_runnable(chain)
+        self._logger.debug(
+            "Built chain without RAG components: %s", self._pretty_runnable(chain)
         )
         return chain
 
@@ -970,8 +594,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             | self.wrap(self.output_cleaner, "Output Cleaner")
             | self.wrap(self.output_transformer, "Output Transformer")
         )
-        self.__logger.debug(
-            "Built chain with RAG components: %s", self.__pretty_runnable(chain)
+        self._logger.debug(
+            "Built chain with RAG components: %s", self._pretty_runnable(chain)
         )
         return chain
 
@@ -982,7 +606,7 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             self.__rag_return_sources_formatted_as_string
             and self.__structured_output_model is not None
         ):
-            raise self.__fail(
+            raise self._fail(
                 "Cannot combine returning sources formatted as string with JSON model output."
             )
         chain = (
@@ -1033,13 +657,14 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
             chain = chain | self.wrap(
                 self.final_answer_formatter, "Final Answer Formatter"
             )
-        self.__logger.debug(
+        self._logger.debug(
             "Built chain with RAG components and document references: %s",
-            self.__pretty_runnable(chain),
+            self._pretty_runnable(chain),
         )
         # INFO: uses a cast to avoid LSP error about incompatible types
         return cast(Runnable[ChainInputType, ChainOutputVar], chain)
 
+    @override
     def build(
         self,
     ) -> Runnable[ChainInputType, ChainOutputVar]:
@@ -1053,8 +678,8 @@ class ChainFactory(Generic[ChainOutputVar, ModelTypeVar]):
 
         :return: A RunnableSerializable instance representing the complete chain.
         """
-        self.__logger.info("Building chain")
-        if self.__use_rag:
+        self._logger.info("Building chain")
+        if self.uses_rag:
             if self.__rag_return_sources:
                 return self.__build_with_rag_with_sources()
             return self.__build_with_rag()

@@ -7,8 +7,13 @@ from langchain_core.language_models import (
 )
 from langchain_core.runnables import Runnable, RunnableLambda
 
-from quick_llm import ChainFactory, ChainOutputVar, Strategy, LanguageModelOutputVar
-from quick_llm.type_definitions import ModelTypeVar
+from ..factory.base_factory import BaseFactory
+from ..support import (
+    ModelTypeVar,
+    ChainOutputVar,
+    LanguageModelOutputVar,
+    Strategy,
+)
 
 
 def transparent_runner[T]() -> Runnable[T, T]:
@@ -34,14 +39,14 @@ class BaseStrategy(
         be a string, dictionary, or Pydantic model.
     """
 
-    def __init__(self, factory: ChainFactory[Any, ModelTypeVar]):
+    def __init__(self, factory: BaseFactory[Any, ModelTypeVar]):
         self.__factory = factory
         self.__adapted_llm: (
             Runnable[LanguageModelInput, LanguageModelOutputVar] | None
         ) = None
 
     @property
-    def factory(self) -> ChainFactory[Any, ModelTypeVar]:
+    def factory(self) -> BaseFactory[Any, ModelTypeVar]:
         """Returns the chain factory associated with the strategy."""
         return self.__factory
 

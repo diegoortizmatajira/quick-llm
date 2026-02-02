@@ -1,10 +1,11 @@
 """Tests for the PromptInputParser class"""
+
 import asyncio
 
 import pytest
 from pydantic import BaseModel, Field
 
-from quick_llm.prompt_input_parser import PromptInputParser
+from quick_llm.support import PromptInputParser
 
 # Test data constants
 TEST_PARAM_NAME = "input"
@@ -463,7 +464,6 @@ class TestEdgeCases:
         """Test with float input"""
         parser = PromptInputParser(TEST_PARAM_NAME)
 
-
         # Test with a float input even though it's not a typical use case
         result = parser.invoke(3.14159)  # pyright: ignore[reportArgumentType]
 
@@ -573,7 +573,6 @@ class TestIntegration:
         parser = PromptInputParser(TEST_PARAM_NAME)
 
         sync_result = parser.invoke(TEST_STRING_VALUE)
-
 
         async_result = asyncio.run(parser.ainvoke(TEST_STRING_VALUE))
 

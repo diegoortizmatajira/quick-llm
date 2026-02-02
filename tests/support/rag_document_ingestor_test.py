@@ -29,8 +29,12 @@ TEST_DOCUMENT3 = Document(
 )
 TEST_DOCUMENTS = [TEST_DOCUMENT1, TEST_DOCUMENT2, TEST_DOCUMENT3]
 
-TEST_SPLIT_DOC1 = Document(page_content="This is the first", metadata={"source": "test1.txt"})
-TEST_SPLIT_DOC2 = Document(page_content="test document", metadata={"source": "test1.txt"})
+TEST_SPLIT_DOC1 = Document(
+    page_content="This is the first", metadata={"source": "test1.txt"}
+)
+TEST_SPLIT_DOC2 = Document(
+    page_content="test document", metadata={"source": "test1.txt"}
+)
 TEST_SPLIT_DOCS = [TEST_SPLIT_DOC1, TEST_SPLIT_DOC2]
 
 
@@ -186,8 +190,7 @@ class TestMethodChaining:
         ingestor = RagDocumentIngestor(vector_store)
 
         result = (
-            ingestor
-            .from_documents([TEST_DOCUMENT1], use_splitter=False)
+            ingestor.from_documents([TEST_DOCUMENT1], use_splitter=False)
             .from_documents([TEST_DOCUMENT2], use_splitter=False)
             .from_documents([TEST_DOCUMENT3], use_splitter=False)
         )
@@ -206,10 +209,8 @@ class TestMethodChaining:
         mock_loader1 = _create_mock_loader([TEST_DOCUMENT1])
         mock_loader2 = _create_mock_loader([TEST_DOCUMENT2])
 
-        result = (
-            ingestor
-            .from_loader(mock_loader1, use_splitter=False)
-            .from_loader(mock_loader2, use_splitter=False)
+        result = ingestor.from_loader(mock_loader1, use_splitter=False).from_loader(
+            mock_loader2, use_splitter=False
         )
 
         assert result is ingestor
@@ -220,7 +221,7 @@ class TestMethodChaining:
 class TestSpecificFormatMethods:
     """Test format-specific ingestion methods"""
 
-    @patch("quick_llm.rag_document_ingestor.UnstructuredMarkdownLoader")
+    @patch("quick_llm.support.rag_document_ingestor.UnstructuredMarkdownLoader")
     def test_from_markdown_document(self, mock_loader_class):
         """Test ingesting markdown document"""
         vector_store = _create_vector_store()
@@ -230,14 +231,16 @@ class TestSpecificFormatMethods:
         mock_loader = _create_mock_loader(TEST_DOCUMENTS)
         mock_loader_class.return_value = mock_loader
 
-        result = ingestor.from_markdown_document("test.md", use_splitter=True, mode="single")
+        result = ingestor.from_markdown_document(
+            "test.md", use_splitter=True, mode="single"
+        )
 
         # Verify loader was created with correct arguments
         mock_loader_class.assert_called_once_with("test.md", mode="single")
         mock_loader.load.assert_called_once()
         assert result is ingestor
 
-    @patch("quick_llm.rag_document_ingestor.TextLoader")
+    @patch("quick_llm.support.rag_document_ingestor.TextLoader")
     def test_from_text_document(self, mock_loader_class):
         """Test ingesting text document"""
         vector_store = _create_vector_store()
@@ -246,14 +249,16 @@ class TestSpecificFormatMethods:
         mock_loader = _create_mock_loader(TEST_DOCUMENTS)
         mock_loader_class.return_value = mock_loader
 
-        result = ingestor.from_text_document("test.txt", use_splitter=False, encoding="utf-8")
+        result = ingestor.from_text_document(
+            "test.txt", use_splitter=False, encoding="utf-8"
+        )
 
         # Verify loader was created with correct arguments
         mock_loader_class.assert_called_once_with("test.txt", encoding="utf-8")
         mock_loader.load.assert_called_once()
         assert result is ingestor
 
-    @patch("quick_llm.rag_document_ingestor.CSVLoader")
+    @patch("quick_llm.support.rag_document_ingestor.CSVLoader")
     def test_from_csv_file(self, mock_loader_class):
         """Test ingesting CSV file"""
         vector_store = _create_vector_store()
@@ -269,7 +274,7 @@ class TestSpecificFormatMethods:
         mock_loader.load.assert_called_once()
         assert result is ingestor
 
-    @patch("quick_llm.rag_document_ingestor.DirectoryLoader")
+    @patch("quick_llm.support.rag_document_ingestor.DirectoryLoader")
     def test_from_documents_folder(self, mock_loader_class):
         """Test ingesting documents from folder"""
         vector_store = _create_vector_store()
@@ -279,17 +284,16 @@ class TestSpecificFormatMethods:
         mock_loader_class.return_value = mock_loader
 
         result = ingestor.from_documents_folder(
-            "/path/to/docs",
-            "*.txt",
-            use_splitter=False,
-            show_progress=True
+            "/path/to/docs", "*.txt", use_splitter=False, show_progress=True
         )
 
-        mock_loader_class.assert_called_once_with("/path/to/docs", "*.txt", show_progress=True)
+        mock_loader_class.assert_called_once_with(
+            "/path/to/docs", "*.txt", show_progress=True
+        )
         mock_loader.load.assert_called_once()
         assert result is ingestor
 
-    @patch("quick_llm.rag_document_ingestor.UnstructuredHTMLLoader")
+    @patch("quick_llm.support.rag_document_ingestor.UnstructuredHTMLLoader")
     def test_from_html_document(self, mock_loader_class):
         """Test ingesting HTML document"""
         vector_store = _create_vector_store()
@@ -305,7 +309,7 @@ class TestSpecificFormatMethods:
         mock_loader.load.assert_called_once()
         assert result is ingestor
 
-    @patch("quick_llm.rag_document_ingestor.BSHTMLLoader")
+    @patch("quick_llm.support.rag_document_ingestor.BSHTMLLoader")
     def test_from_html_document_with_beautifulsoup(self, mock_loader_class):
         """Test ingesting HTML document with BeautifulSoup"""
         vector_store = _create_vector_store()
@@ -315,16 +319,16 @@ class TestSpecificFormatMethods:
         mock_loader_class.return_value = mock_loader
 
         result = ingestor.from_html_document_with_beautifulsoup(
-            "test.html",
-            use_splitter=False,
-            bs_kwargs={"features": "html.parser"}
+            "test.html", use_splitter=False, bs_kwargs={"features": "html.parser"}
         )
 
-        mock_loader_class.assert_called_once_with("test.html", bs_kwargs={"features": "html.parser"})
+        mock_loader_class.assert_called_once_with(
+            "test.html", bs_kwargs={"features": "html.parser"}
+        )
         mock_loader.load.assert_called_once()
         assert result is ingestor
 
-    @patch("quick_llm.rag_document_ingestor.JSONLoader")
+    @patch("quick_llm.support.rag_document_ingestor.JSONLoader")
     def test_from_json_document(self, mock_loader_class):
         """Test ingesting JSON document"""
         vector_store = _create_vector_store()
@@ -335,21 +339,16 @@ class TestSpecificFormatMethods:
         mock_loader_class.return_value = mock_loader
 
         result = ingestor.from_json_document(
-            "test.json",
-            use_splitter=True,
-            jq_schema=".[]",
-            text_content=False
+            "test.json", use_splitter=True, jq_schema=".[]", text_content=False
         )
 
         mock_loader_class.assert_called_once_with(
-            "test.json",
-            jq_schema=".[]",
-            text_content=False
+            "test.json", jq_schema=".[]", text_content=False
         )
         mock_loader.load.assert_called_once()
         assert result is ingestor
 
-    @patch("quick_llm.rag_document_ingestor.PyPDFLoader")
+    @patch("quick_llm.support.rag_document_ingestor.PyPDFLoader")
     def test_from_pdf_document(self, mock_loader_class):
         """Test ingesting PDF document"""
         vector_store = _create_vector_store()
@@ -372,16 +371,14 @@ class TestTextSplitterIntegration:
         """Test using CharacterTextSplitter"""
         vector_store = _create_vector_store()
         text_splitter = CharacterTextSplitter(
-            chunk_size=50,
-            chunk_overlap=10,
-            separator=" "
+            chunk_size=50, chunk_overlap=10, separator=" "
         )
         ingestor = RagDocumentIngestor(vector_store, text_splitter)
 
         # Create a long document that will be split
         long_doc = Document(
             page_content="This is a very long document. " * 20,
-            metadata={"source": "long.txt"}
+            metadata={"source": "long.txt"},
         )
 
         result = ingestor.from_documents([long_doc], use_splitter=True)
@@ -390,21 +387,21 @@ class TestTextSplitterIntegration:
         # Verify document was split into multiple chunks
         # The splitter should have split the 600-character document into multiple 50-char chunks
         search_results = vector_store.similarity_search("long document", k=20)
-        assert len(search_results) >= 10, f"Expected at least 10 chunks, got {len(search_results)}"
+        assert len(search_results) >= 10, (
+            f"Expected at least 10 chunks, got {len(search_results)}"
+        )
 
     def test_with_recursive_character_text_splitter(self):
         """Test using RecursiveCharacterTextSplitter"""
         vector_store = _create_vector_store()
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=40,
-            chunk_overlap=5,
-            separators=["\n\n", "\n", " "]
+            chunk_size=40, chunk_overlap=5, separators=["\n\n", "\n", " "]
         )
         ingestor = RagDocumentIngestor(vector_store, text_splitter)
 
         doc = Document(
             page_content="First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
-            metadata={"source": "structured.txt"}
+            metadata={"source": "structured.txt"},
         )
 
         result = ingestor.from_documents([doc], use_splitter=True)
@@ -431,8 +428,12 @@ class TestVectorStoreInteraction:
 
         # Verify the returned documents are from our test set
         page_contents = [doc.page_content for doc in results]
-        assert any("first" in content.lower() or "second" in content.lower() or "third" in content.lower()
-                   for content in page_contents)
+        assert any(
+            "first" in content.lower()
+            or "second" in content.lower()
+            or "third" in content.lower()
+            for content in page_contents
+        )
 
     def test_metadata_preserved_after_ingestion(self):
         """Test that document metadata is preserved after ingestion"""
@@ -441,7 +442,11 @@ class TestVectorStoreInteraction:
 
         doc_with_metadata = Document(
             page_content="Document with metadata",
-            metadata={"source": "meta.txt", "author": "Test Author", "date": "2024-01-01"}
+            metadata={
+                "source": "meta.txt",
+                "author": "Test Author",
+                "date": "2024-01-01",
+            },
         )
 
         ingestor.from_documents([doc_with_metadata], use_splitter=False)

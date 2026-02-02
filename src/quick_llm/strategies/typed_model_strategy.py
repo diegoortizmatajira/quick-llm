@@ -9,8 +9,9 @@ from langchain_core.language_models import (
 from langchain_core.runnables import Runnable, RunnableLambda
 from pydantic import BaseModel
 
-from .base_model_strategy import BaseModelStrategy, ModelTypeVar
+from .base_model_strategy import BaseModelStrategy
 from .base_strategy import transparent_runner
+from ..support import ModelTypeVar
 
 
 class TypedModelStrategy(

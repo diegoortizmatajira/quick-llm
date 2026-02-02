@@ -3,9 +3,6 @@
 import json
 from typing import cast
 
-from langchain_core.prompt_values import ChatPromptValue, StringPromptValue
-from langchain_core.prompts.chat import ChatPromptTemplate, MessagePromptTemplateT
-from langchain_text_splitters import RecursiveCharacterTextSplitter, TokenTextSplitter
 import pytest
 from langchain_core.documents import Document
 from langchain_core.embeddings import FakeEmbeddings
@@ -16,13 +13,13 @@ from langchain_core.language_models import (
     LanguageModelLike,
     LanguageModelOutput,
 )
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_core.retrievers import RetrieverLike
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableLambda
 from langchain_core.vectorstores import InMemoryVectorStore
-from pydantic import BaseModel, Field
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from quick_llm import ChainFactory, ChainInputType
+from ..test_models import AnswerOutput
 
 TEST_INPUT = "Test input"
 TEST_EXPECTED_RESPONSE = "This is a sample response."
@@ -49,19 +46,6 @@ TEST_FAKE_DOCUMENT2 = Document(
 )
 TEST_DOCUMENT_LIST = [TEST_FAKE_DOCUMENT1, TEST_FAKE_DOCUMENT2]
 TEST_EXPECTED_CUSTOM_RETRIEVER_RESULT = [TEST_FAKE_DOCUMENT2]
-
-
-class AnswerOutput(BaseModel):
-    """Sample object structure to test the JSON parsing feature"""
-
-    what: str = Field(description="Summarizes/rephrase the question being answered.")
-    when: str = Field(
-        description="Provides a date-formatted answer to the question when required."
-    )
-    who: str = Field(
-        description="Provides a proper name answer to the question when required."
-    )
-    general: str = Field(description="Provides a short-text answer to the question.")
 
 
 def _get_test_models(expected_response: str) -> list[LanguageModelLike]:
@@ -207,49 +191,6 @@ class TestBaseChains:
 
 class TestBaseSupportComponents:
     """Tests for the ChainFactory class support components"""
-
-    def test_string_prompt(self):
-        """Tests the prompt template component of the ChainFactory"""
-        factory = ChainFactory().use_prompt_template("Sample Prompt {input}")
-        prompt = factory.prompt_template
-        assert prompt is not None
-        rendered = prompt.invoke(
-            {
-                factory.input_param: TEST_INPUT,
-            }
-        )
-        assert isinstance(rendered, StringPromptValue)
-        assert rendered.text == f"Sample Prompt {TEST_INPUT}"
-
-    def test_custom_prompt(self):
-        """Tests the prompt template component of the ChainFactory"""
-        factory = (
-            ChainFactory()
-            .use_prompt_template(
-                ChatPromptTemplate(
-                    [
-                        ("system", "You are a helpful assistant."),
-                        ("human", "Sample Prompt {input}"),
-                    ],
-                    template_format="f-string",
-                )
-            )
-            .use_input_param("input")
-        )
-        prompt = factory.prompt_template
-        assert prompt is not None
-        assert isinstance(prompt, ChatPromptTemplate)
-        rendered = prompt.invoke(
-            {
-                factory.input_param: TEST_INPUT,
-            }
-        )
-        assert isinstance(rendered, ChatPromptValue)
-        assert len(rendered.messages) == 2
-        assert isinstance(rendered.messages[0], SystemMessage)
-        assert rendered.messages[0].content == "You are a helpful assistant."
-        assert isinstance(rendered.messages[1], HumanMessage)
-        assert rendered.messages[1].content == f"Sample Prompt {TEST_INPUT}"
 
     @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
     def test_input_transformer(self, input_value: ChainInputType):
@@ -565,29 +506,6 @@ class TestRagChains:
         assert response[20] == {"what": "something", "when": "tomorrow", "who": ""}
 
 
-class TestRagSupportComponents:
-    """Tests for the ChainFactory class RAG support components"""
-
-    @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-    def test_use_retriever(self, input_value: ChainInputType):
-        """Test the factory with a string output"""
-        models = _get_test_models(TEST_EXPECTED_RESPONSE)
-        mock_retriever: RetrieverLike = RunnableLambda(
-            lambda _: TEST_EXPECTED_CUSTOM_RETRIEVER_RESULT
-        )
-        for model in models:
-            factory = (
-                ChainFactory()
-                .use(_rag_setup_visitor(model))
-                .use_retriever(mock_retriever)
-            )
-            retrieve_result = factory.retriever.invoke("test query")
-            assert retrieve_result == TEST_EXPECTED_CUSTOM_RETRIEVER_RESULT
-            chain = factory.build()
-            response = chain.invoke(input_value)
-            assert response == TEST_EXPECTED_RESPONSE
-
-
 class TestParameterConfiguration:
     """Test custom parameter name configuration"""
 
@@ -761,38 +679,6 @@ class TestCustomTransformers:
         assert response == TEST_EXPECTED_RESPONSE
 
 
-class TestTextSplitterConfiguration:
-    """Test text splitter configuration options"""
-
-    def test_use_text_splitter_custom(self):
-        """Test using a custom text splitter"""
-        custom_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=100, chunk_overlap=20, separators=["\n\n", "\n", " "]
-        )
-
-        factory = ChainFactory().use_text_splitter(custom_splitter)
-
-        assert factory.text_splitter == custom_splitter
-        assert factory.text_splitter._chunk_size == 100  # type: ignore
-
-    @pytest.mark.skip(
-        reason="TokenTextSplitter requires tiktoken which may not be installed"
-    )
-    def test_use_default_token_splitter(self):
-        """Test using the default token splitter"""
-        factory = ChainFactory().use_default_token_splitter()
-
-        assert factory.text_splitter is not None
-        assert isinstance(factory.text_splitter, TokenTextSplitter)
-
-    def test_use_default_text_splitter(self):
-        """Test using the default text splitter"""
-        factory = ChainFactory().use_default_text_splitter()
-
-        assert factory.text_splitter is not None
-        assert isinstance(factory.text_splitter, RecursiveCharacterTextSplitter)
-
-
 class TestIngestor:
     """Test RAG document ingestor"""
 
@@ -942,82 +828,6 @@ class TestDefaultFormatters:
         result = formatter(docs)
         assert "References:" in result
         assert "Content without source" in result
-
-
-class TestGetReadableValue:
-    """Test get_readable_value static method"""
-
-    def test_get_readable_value_with_base_message(self):
-        """Test readable value conversion for BaseMessage"""
-
-        msg = HumanMessage(content="Test message")
-        result = ChainFactory.get_readable_value(msg)
-
-        assert isinstance(result, str)
-        assert "Test message" in result
-
-    def test_get_readable_value_with_base_model(self):
-        """Test readable value conversion for BaseModel"""
-        model = AnswerOutput(
-            what="test answer", when="now", who="tester", general="general info"
-        )
-        result = ChainFactory.get_readable_value(model)
-
-        assert isinstance(result, str)
-        assert "test answer" in result
-
-    def test_get_readable_value_with_string(self):
-        """Test readable value conversion for plain string"""
-        result = ChainFactory.get_readable_value("plain text")
-        assert result == "plain text"
-
-    def test_get_readable_value_with_dict(self):
-        """Test readable value conversion for dict"""
-        test_dict = {"key": "value"}
-        result = ChainFactory.get_readable_value(test_dict)
-        assert result == test_dict
-
-
-class TestVisitorPattern:
-    """Test the visitor pattern functionality"""
-
-    def test_use_method_with_visitor(self):
-        """Test using a visitor to configure the factory"""
-        visited = False
-
-        def visitor(factory: ChainFactory):
-            nonlocal visited
-            visited = True
-            factory.use_language_model(FakeListLLM(responses=[TEST_EXPECTED_RESPONSE]))
-            factory.use_prompt_template("Test {input}")
-
-        factory = ChainFactory().use(visitor)
-
-        assert visited
-        assert factory.language_model is not None
-        assert factory.prompt_template is not None
-
-        chain = factory.build()
-        response = chain.invoke(TEST_INPUT)
-        assert response == TEST_EXPECTED_RESPONSE
-
-    def test_multiple_visitors(self):
-        """Test chaining multiple visitors"""
-
-        def visitor1(factory: ChainFactory):
-            factory.use_language_model(FakeListLLM(responses=[TEST_EXPECTED_RESPONSE]))
-
-        def visitor2(factory: ChainFactory):
-            factory.use_prompt_template("Test {input}")
-
-        def visitor3(factory: ChainFactory):
-            factory.use_detailed_logging(True)
-
-        factory = ChainFactory().use(visitor1).use(visitor2).use(visitor3)
-
-        chain = factory.build()
-        response = chain.invoke(TEST_INPUT)
-        assert response == TEST_EXPECTED_RESPONSE
 
 
 class TestPropertyGetters:

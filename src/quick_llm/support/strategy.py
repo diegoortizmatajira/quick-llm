@@ -1,19 +1,11 @@
-"""Module defining type aliases for QuickLLM."""
+"""Strategy interface for adapting language models to specific use cases."""
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
-from jsonpatch import Sequence
-from langchain_core.language_models import LanguageModelInput
-from langchain_core.messages import MessageLikeRepresentation
+from typing import Generic
+
 from langchain_core.runnables import Runnable
-from pydantic import BaseModel
 
-
-ChainInputType = str | dict | BaseModel | Sequence[MessageLikeRepresentation]
-ChainOutputVar = TypeVar("ChainOutputVar")
-PromptOutputVar = TypeVar("PromptOutputVar", bound=LanguageModelInput)
-LanguageModelOutputVar = TypeVar("LanguageModelOutputVar", str, dict, BaseModel, None)
-ModelTypeVar = TypeVar("ModelTypeVar", str, dict, BaseModel, None)
+from .type_definitions import ChainOutputVar, LanguageModelInput, LanguageModelOutputVar
 
 
 class Strategy(ABC, Generic[LanguageModelOutputVar]):

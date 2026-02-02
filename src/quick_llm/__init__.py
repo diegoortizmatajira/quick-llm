@@ -1,6 +1,6 @@
 """Root package for QuickLLM"""
 
-from .chain_factory import ChainFactory
+from .factory import ChainFactory
 from .chain_endpoints import (
     GenerateRequest,
     GenerateResponse,
@@ -8,15 +8,15 @@ from .chain_endpoints import (
     ChatResponse,
     ChainEndpoints,
 )
-from .type_definitions import (
+from .support import (
     ChainInputType,
     ChainOutputVar,
     PromptOutputVar,
     LanguageModelOutputVar,
     Strategy,
+    RagDocumentIngestor,
+    PromptInputParser,
 )
-from .prompt_input_parser import PromptInputParser
-from .rag_document_ingestor import RagDocumentIngestor
 
 __all__ = [
     "ChainEndpoints",

@@ -15,7 +15,7 @@ from .chat import (
     ChatInputType,
     ChatOutputTransformer,
 )
-from .type_definitions import ChainInputType, ChainOutputVar
+from .support import ChainInputType, ChainOutputVar
 
 
 class GenerateRequest[T](BaseModel):
@@ -49,7 +49,8 @@ class ChatRequest(BaseModel):
         """
 
         def is_iterable_but_not_message(obj):
-            # Check if it's a BaseMessage first (these are iterable but should be treated as single items)
+            # Check if it's a BaseMessage first (these are iterable but should
+            # be treated as single items)
             if isinstance(obj, BaseMessage):
                 return False
             # Check if it's iterable (like a list or tuple)
@@ -74,7 +75,8 @@ class ChatRequest(BaseModel):
 
 class ChatResponse[MessageTypeVar: BaseMessage](BaseModel):
     """
-    Represents the response from the chat API, containing the generated message from the AI Assistant.
+    Represents the response from the chat API, containing the generated message
+    from the AI Assistant.
     """
 
     message: MessageTypeVar

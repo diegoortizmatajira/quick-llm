@@ -1,6 +1,6 @@
 """A strategy module for handling string-based outputs from language models."""
 
-from typing import cast, override
+from typing import Any, cast, override
 
 from langchain_core.language_models import (
     LanguageModelInput,
@@ -11,7 +11,7 @@ from langchain_core.runnables import Runnable
 from .base_strategy import BaseStrategy
 
 
-class TextStrategy(BaseStrategy[str, dict]):
+class TextStrategy(BaseStrategy[Any, None]):
     """A strategy for handling and adapting text-based outputs.
 
     This class extends the BaseStrategy specifically for string
