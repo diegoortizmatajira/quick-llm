@@ -6,6 +6,7 @@ from typing import (
     Iterator,
     Self,
     cast,
+    get_origin,
     overload,
     override,
 )
@@ -29,6 +30,12 @@ from ..support import (
     ChainOutputVar,
     ModelTypeVar,
     Strategy,
+)
+from ..strategies import (
+    TextStrategy,
+    DictModelStrategy,
+    TypedModelStrategy,
+    NullStrategy,
 )
 from .base_factory import BaseFactory
 
@@ -85,9 +92,7 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         :param json_model: A Pydantic BaseModel class that will be used to interpret JSON outputs.
         :return: A ChainFactory instance configured to use the provided JSON model.
         """
-        return ChainFactory(dict[str, object], json_model).use_structured_output(
-            json_model
-        )
+        return ChainFactory(dict[str, object], json_model)
 
     @staticmethod
     def for_rag_with_sources() -> "ChainFactory[dict[str, object],None]":
@@ -543,6 +548,35 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         )
         return self
 
+    def select_strategy(self):
+        """
+        Selects and initializes the appropriate strategy based on the output type
+        and structured model type.
+        """
+        if self.structured_model_type is None:
+            if self._output_type is str:
+                self._logger.debug("Selecting TextStrategy for string output.")
+                self.__strategy = TextStrategy(self)
+            else:
+                self._logger.debug(
+                    "Selecting NullStrategy for '%s' output type.", self._output_type
+                )
+                self.__strategy = NullStrategy(self)
+        else:
+            if get_origin(self._output_type) is dict:
+                self._logger.debug("Selecting DictModelStrategy for dict output.")
+                self.__strategy = DictModelStrategy(self)
+            elif self._output_type is self.structured_model_type:
+                self._logger.debug(
+                    "Selecting TypedModelStrategy for typed model output."
+                )
+                self.__strategy = TypedModelStrategy(self)
+            else:
+                self._logger.debug(
+                    "Selecting NullStrategy for '%s' output type.", self._output_type
+                )
+                self.__strategy = NullStrategy(self)
+
     def __build_without_rag(
         self,
     ) -> Runnable[ChainInputType, ChainOutputVar]:
@@ -570,10 +604,10 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
             self.wrap(self.input_transformer, "Input Transformer")
             | self.wrap(self.additional_values_injector, "Additional Values Injector")
             | self.wrap(self.prompt_template, "Prompt Template")
-            # | self.wrap(adapted_language_model, "Adapted Language Model")
-            | self.wrap(self.language_model, "Language Model")
-            | self.wrap(self.output_cleaner, "Output Cleaner")
-            | self.wrap(self.output_transformer, "Output Transformer")
+            | self.wrap(self.strategy.adapted_llm, "Strategy Adapted LLM")
+            # | self.wrap(self.language_model, "Language Model")
+            # | self.wrap(self.output_cleaner, "Output Cleaner")
+            # | self.wrap(self.output_transformer, "Output Transformer")
         )
         self._logger.debug(
             "Built chain without RAG components: %s", self._pretty_runnable(chain)
@@ -685,8 +719,20 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         :return: A RunnableSerializable instance representing the complete chain.
         """
         self._logger.info("Building chain")
-        if self.uses_rag:
-            if self.__rag_return_sources:
-                return self.__build_with_rag_with_sources()
-            return self.__build_with_rag()
-        return self.__build_without_rag()
+        self.select_strategy()
+        chain = (
+            self.wrap(self.input_transformer, "Input Transformer")
+            | self.wrap(self.additional_values_injector, "Additional Values Injector")
+            | self.wrap(self.prompt_template, "Prompt Template")
+            | self.wrap(self.strategy.adapted_llm, "Strategy Adapted LLM")
+            # | self.wrap(self.language_model, "Language Model")
+            # | self.wrap(self.output_cleaner, "Output Cleaner")
+            # | self.wrap(self.output_transformer, "Output Transformer")
+        )
+        self._logger.debug("Built chain: %s", self._pretty_runnable(chain))
+        return chain
+        # if self.uses_rag:
+        #     if self.__rag_return_sources:
+        #         return self.__build_with_rag_with_sources()
+        #     return self.__build_with_rag()
+        # return self.__build_without_rag()

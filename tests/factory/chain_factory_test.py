@@ -117,13 +117,13 @@ class TestBaseChains:
         assert response == TEST_EXPECTED_RESPONSE
 
     @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-    @pytest.mark.parametrize("model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE))
-    def test_json(self, input_value: ChainInputType, model: LanguageModelLike):
+    @pytest.mark.parametrize("language_model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+    def test_json(self, input_value: ChainInputType, language_model: LanguageModelLike):
         """Test the factory with a json output"""
         factory = (
             ChainFactory.for_structured_output(AnswerOutput)
             .use_prompt_template("Sample Prompt {input}")
-            .use_language_model(model)
+            .use_language_model(language_model)
             .use_detailed_logging()
         )
         chain = factory.build()

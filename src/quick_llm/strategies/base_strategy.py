@@ -78,3 +78,11 @@ class BaseStrategy(
     def output_transformer(self) -> Runnable[LanguageModelOutputVar, ChainOutputVar]:
         """Returns a runnable that transforms the model output to the desired chain output."""
         return transparent_runner()
+
+    def wrap[Input, Output](
+        self, runnable: Runnable[Input, Output], caption: str
+    ) -> Runnable[Input, Output]:
+        """
+        Wraps a runnable with a caption for better traceability.
+        """
+        return self.factory.wrap(runnable, caption)

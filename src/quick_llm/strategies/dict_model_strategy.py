@@ -33,7 +33,16 @@ class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[dict, ModelType
                 def get_raw(result: dict) -> dict:
                     return cast(dict, result.get("raw", {}))
 
-                return adapted_model | RunnableLambda(get_raw) | self.dict_parser
+                return (
+                    self.wrap(adapted_model, "Language model with structured output")
+                    | self.wrap(
+                        RunnableLambda(get_raw, name="Raw output extractor"),
+                        "Raw output extractor",
+                    )
+                    | self.wrap(self.dict_parser, "Dict output parser")
+                )
             except NotImplementedError:
                 self._model_supports_structured_output = False
-        return self.language_model | self.dict_parser
+        return self.wrap(
+            self.language_model, "Language model without structured output"
+        ) | self.wrap(self.dict_parser, "Dict output parser")

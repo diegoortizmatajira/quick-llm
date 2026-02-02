@@ -7,7 +7,7 @@ from langchain_core.language_models import (
 )
 from langchain_core.runnables import Runnable
 
-from quick_llm import LanguageModelOutputVar
+from ..support.type_definitions import LanguageModelOutputVar
 from .base_strategy import BaseStrategy
 
 

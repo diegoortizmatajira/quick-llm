@@ -5,7 +5,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
-from ..factory import ChainFactory
+from ..factory.base_factory import BaseFactory
 from ..support import ModelTypeVar
 from .base_strategy import BaseStrategy
 
@@ -20,7 +20,7 @@ class BaseModelStrategy(
     Base class for model strategies that handle specific model types.
     """
 
-    def __init__(self, factory: ChainFactory[Any, ModelTypeVar]):
+    def __init__(self, factory: BaseFactory[Any, ModelTypeVar]):
         super().__init__(factory)
         self._model_supports_structured_output: bool = False
 

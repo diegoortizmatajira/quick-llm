@@ -1,6 +1,6 @@
 """A strategy module for handling string-based outputs from language models."""
 
-from typing import Any, cast, override
+from typing import Any, override
 
 from langchain_core.language_models import (
     LanguageModelInput,
@@ -8,10 +8,11 @@ from langchain_core.language_models import (
 )
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable
+
 from .base_strategy import BaseStrategy
 
 
-class TextStrategy(BaseStrategy[Any, None]):
+class TextStrategy(BaseStrategy[Any, Any]):
     """A strategy for handling and adapting text-based outputs.
 
     This class extends the BaseStrategy specifically for string
@@ -30,9 +31,8 @@ class TextStrategy(BaseStrategy[Any, None]):
             Runnable: A runnable instance that processes LanguageModelInput
             to produce a string output.
         """
-        return (
-            cast(Runnable[LanguageModelInput, LanguageModelOutput], self.language_model)
-            | self.text_parser
+        return self.wrap(self.language_model, "Language Model") | self.wrap(
+            self.text_parser, "Text Parser"
         )
 
     @property
