@@ -53,18 +53,18 @@ class TypedModelStrategy(
             processes language model inputs and generates typed outputs.
         """
         # Don't use with_structured_output for dict type as it returns AIMessage
-        if isinstance(self.model, BaseChatModel) and not issubclass(
+        if isinstance(self.language_model, BaseChatModel) and not issubclass(
             self.structured_output_model, dict
         ):
             self._model_supports_structured_output = False
             try:
-                model = self.model.with_structured_output(self.structured_output_model)
+                model = self.language_model.with_structured_output(self.structured_output_model)
                 self._model_supports_structured_output = True
                 return cast(Runnable[LanguageModelInput, ModelTypeVar], model)
             except NotImplementedError:
                 self._model_supports_structured_output = False
 
-        return self.model | self.dict_parser | self.typed_parser
+        return self.language_model | self.dict_parser | self.typed_parser
 
     @property
     def typed_parser(self) -> Runnable[dict, ModelTypeVar]:

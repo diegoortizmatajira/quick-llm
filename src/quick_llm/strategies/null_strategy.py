@@ -24,4 +24,4 @@ class NullStrategy(
 
     @override
     def adapt_llm(self) -> Runnable[LanguageModelInput, LanguageModelOutputVar]:
-        return cast(Runnable[LanguageModelInput, LanguageModelOutputVar], self.model)
+        return cast(Runnable[LanguageModelInput, LanguageModelOutputVar], self.language_model)

@@ -40,8 +40,12 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
     def __init__(
         self,
         output_type: type[ChainOutputVar] = str,
+        structured_model_type: type[ModelTypeVar] | None = None,
     ) -> None:
-        super().__init__(output_type=output_type)
+        super().__init__(
+            output_type=output_type,
+            structured_model_type=structured_model_type,
+        )
         # Transformers (Input/Output)
         self._in_transf: Runnable[ChainInputType, dict] | None = None
         self._out_transf: Runnable[LanguageModelOutput, ChainOutputVar] | None = None
@@ -81,7 +85,9 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         :param json_model: A Pydantic BaseModel class that will be used to interpret JSON outputs.
         :return: A ChainFactory instance configured to use the provided JSON model.
         """
-        return ChainFactory(dict[str, object]).use_structured_output(json_model)
+        return ChainFactory(dict[str, object], json_model).use_structured_output(
+            json_model
+        )
 
     @staticmethod
     def for_rag_with_sources() -> "ChainFactory[dict[str, object],None]":

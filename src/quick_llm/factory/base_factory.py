@@ -39,8 +39,10 @@ class BaseFactory(ABC, Generic[ChainOutputVar, ModelTypeVar]):
     def __init__(
         self,
         output_type: type[ChainOutputVar] = str,
+        structured_model_type: type[ModelTypeVar] | None = None,
     ) -> None:
         self._output_type = output_type
+        self._structured_model_type = structured_model_type
         # Logger setup
         self._logger = logging.getLogger(__name__)
         self._detailed_logging: bool = False
@@ -108,6 +110,15 @@ class BaseFactory(ABC, Generic[ChainOutputVar, ModelTypeVar]):
         if self._detailed_logging:
             return runnable | self.passthrough_logger(caption)
         return runnable
+
+    @property
+    def structured_model_type(self) -> type[ModelTypeVar] | None:
+        """
+        Gets the structured output model type.
+
+        :return: The current structured output model type or None if not set.
+        """
+        return self._structured_model_type
 
     @property
     def language_model(self) -> LanguageModelLike:

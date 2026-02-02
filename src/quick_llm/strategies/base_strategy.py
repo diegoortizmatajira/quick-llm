@@ -51,7 +51,7 @@ class BaseStrategy(
         return self.__factory
 
     @property
-    def model(self) -> LanguageModelLike:
+    def language_model(self) -> LanguageModelLike:
         """Returns the language model from the factory."""
         return self.__factory.language_model
 

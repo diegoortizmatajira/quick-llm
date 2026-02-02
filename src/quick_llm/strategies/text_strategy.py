@@ -31,7 +31,7 @@ class TextStrategy(BaseStrategy[Any, None]):
             to produce a string output.
         """
         return (
-            cast(Runnable[LanguageModelInput, LanguageModelOutput], self.model)
+            cast(Runnable[LanguageModelInput, LanguageModelOutput], self.language_model)
             | self.text_parser
         )
 

@@ -26,10 +26,10 @@ class BaseModelStrategy(
 
     @property
     def structured_output_model(self) -> type[ModelTypeVar]:
-        if self.factory.structured_output_model is None:
+        if self.factory.structured_model_type is None:
             raise ValueError("Structured output model is not defined in the factory.")
         # NOTE: This following cast should not be required
-        return cast(type[ModelTypeVar], self.factory.structured_output_model)
+        return cast(type[ModelTypeVar], self.factory.structured_model_type)
 
     @property
     def dict_parser(self) -> Runnable[dict, dict]:
@@ -46,5 +46,5 @@ class BaseModelStrategy(
         # For Pydantic models, use JsonOutputParser with pydantic_object
         return cast(
             Runnable[dict, dict],
-            JsonOutputParser(pydantic_object=self.factory.structured_output_model),
+            JsonOutputParser(pydantic_object=self.factory.structured_model_type),
         )
