@@ -1,7 +1,8 @@
 """Tests for the ChainFactory class"""
 
+from dataclasses import is_dataclass
 import json
-from typing import cast
+from typing import Type, TypedDict, cast
 
 import pytest
 from langchain_core.documents import Document
@@ -19,7 +20,8 @@ from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from quick_llm import ChainFactory, ChainInputType
-from ..test_models import AnswerOutput
+from quick_llm.support import is_typed_dict
+from ..test_models import AnswerOutput, AnswerOutputClass, AnswerOutputDictionary
 
 TEST_INPUT = "Test input"
 TEST_EXPECTED_RESPONSE = "This is a sample response."
@@ -100,7 +102,10 @@ class TestBaseChains:
         "model", _get_test_streaming_models(TEST_EXPECTED_RESPONSE)
     )
     def test_string_stream(self, input_value: ChainInputType, model: LanguageModelLike):
-        """Test the factory with a simple text chain using streaming on a chat model and a non-chat model"""
+        """
+        Test the factory with a simple text chain using streaming on a chat
+        model and a non-chat model
+        """
         factory = (
             ChainFactory()
             .use_prompt_template("Sample Prompt {input}")
@@ -117,11 +122,21 @@ class TestBaseChains:
         assert response == TEST_EXPECTED_RESPONSE
 
     @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
-    @pytest.mark.parametrize("language_model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE))
-    def test_json(self, input_value: ChainInputType, language_model: LanguageModelLike):
+    @pytest.mark.parametrize(
+        "language_model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE)
+    )
+    @pytest.mark.parametrize(
+        "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
+    )
+    def test_json(
+        self,
+        input_value: ChainInputType,
+        language_model: LanguageModelLike,
+        structured_type: Type,
+    ):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory.for_structured_output(AnswerOutput)
+            ChainFactory.for_structured_output(structured_type)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(language_model)
             .use_detailed_logging()
@@ -135,12 +150,18 @@ class TestBaseChains:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
     @pytest.mark.parametrize("model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+    @pytest.mark.parametrize(
+        "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
+    )
     async def test_json_async(
-        self, input_value: ChainInputType, model: LanguageModelLike
+        self,
+        input_value: ChainInputType,
+        model: LanguageModelLike,
+        structured_type: Type,
     ):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory.for_structured_output(AnswerOutput)
+            ChainFactory.for_structured_output(structured_type)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
         )
@@ -154,10 +175,18 @@ class TestBaseChains:
     @pytest.mark.parametrize(
         "model", _get_test_streaming_models(TEST_JSON_EXPECTED_RESPONSE)
     )
-    def test_json_stream(self, input_value: ChainInputType, model: LanguageModelLike):
+    @pytest.mark.parametrize(
+        "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
+    )
+    def test_json_stream(
+        self,
+        input_value: ChainInputType,
+        model: LanguageModelLike,
+        structured_type: Type,
+    ):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory.for_structured_output(AnswerOutput)
+            ChainFactory.for_structured_output(structured_type)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
         )
@@ -187,6 +216,95 @@ class TestBaseChains:
         assert response[18] == {"what": "something", "when": "tomorro"}
         assert response[19] == {"what": "something", "when": "tomorrow"}
         assert response[20] == {"what": "something", "when": "tomorrow", "who": ""}
+
+    @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
+    @pytest.mark.parametrize("model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+    @pytest.mark.parametrize(
+        "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
+    )
+    def test_model(
+        self,
+        input_value: ChainInputType,
+        model: LanguageModelLike,
+        structured_type: Type,
+    ):
+        """Test the factory with a json output"""
+        factory = (
+            ChainFactory(structured_type, structured_type)
+            .use_prompt_template("Sample Prompt {input}")
+            .use_language_model(model)
+        )
+        chain = factory.build()
+        response = chain.invoke(input_value)
+        # Checks that the response is a populated dictionary
+        # if isinstance(response, dict):
+        if is_typed_dict(structured_type):
+            assert isinstance(response, dict)
+            assert response.get("what", "nothing") == "something"
+        else:
+            assert isinstance(response, structured_type)
+            assert response.what == "something"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
+    @pytest.mark.parametrize("model", _get_test_models(TEST_JSON_EXPECTED_RESPONSE))
+    @pytest.mark.parametrize(
+        "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
+    )
+    async def test_model_async(
+        self,
+        input_value: ChainInputType,
+        model: LanguageModelLike,
+        structured_type: Type,
+    ):
+        """Test the factory with a json output"""
+        factory = (
+            ChainFactory(structured_type, structured_type)
+            .use_prompt_template("Sample Prompt {input}")
+            .use_language_model(model)
+        )
+        chain = factory.build()
+        response = await chain.ainvoke(input_value)
+        # Checks that the response is a populated dictionary
+        # if isinstance(response, dict):
+        if is_typed_dict(structured_type):
+            assert isinstance(response, dict)
+            assert response.get("what", "nothing") == "something"
+        else:
+            assert isinstance(response, structured_type)
+            assert response.what == "something"
+
+    @pytest.mark.parametrize("input_value", TEST_INPUT_SAMPLES)
+    @pytest.mark.parametrize(
+        "model", _get_test_streaming_models(TEST_JSON_EXPECTED_RESPONSE)
+    )
+    @pytest.mark.parametrize(
+        "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
+    )
+    def test_model_stream(
+        self,
+        input_value: ChainInputType,
+        model: LanguageModelLike,
+        structured_type: Type,
+    ):
+        """Test the factory with a json output"""
+        factory = (
+            ChainFactory(structured_type, structured_type)
+            .use_prompt_template("Sample Prompt {input}")
+            .use_language_model(model)
+        )
+        chain = factory.build()
+        stream = chain.stream(input_value)
+        response = list(stream)
+        assert len(response) == 1
+        if is_typed_dict(structured_type):
+            assert isinstance(response[0], dict)
+            assert response[0].get("what", "nothing") == "something"
+            assert response[0].get("when", "nothing") == "tomorrow"
+        else:
+            assert isinstance(response[0], structured_type)
+            assert response[0].what == "something"
+            assert response[0].when == "tomorrow"
 
 
 class TestBaseSupportComponents:

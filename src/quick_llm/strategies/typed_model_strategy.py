@@ -1,6 +1,7 @@
 """TypedModelStrategy: A strategy for adapting language models to produce typed outputs."""
 
-from typing import Generic, cast, override
+from dataclasses import is_dataclass
+from typing import Generic, TypedDict, cast, override
 
 from langchain_core.language_models import (
     BaseChatModel,
@@ -58,7 +59,9 @@ class TypedModelStrategy(
         ):
             self._model_supports_structured_output = False
             try:
-                model = self.language_model.with_structured_output(self.structured_output_model)
+                model = self.language_model.with_structured_output(
+                    self.structured_output_model
+                )
                 self._model_supports_structured_output = True
                 return cast(Runnable[LanguageModelInput, ModelTypeVar], model)
             except NotImplementedError:
@@ -83,7 +86,16 @@ class TypedModelStrategy(
             return transparent_runner()
 
         def parse_typed(result: dict) -> ModelTypeVar:
-            pydantic_type = cast(BaseModel, self.structured_output_model)
-            return cast(ModelTypeVar, pydantic_type.model_validate(result))
+            if issubclass(self.structured_output_model, BaseModel):
+                return cast(
+                    ModelTypeVar, self.structured_output_model.model_validate(result)
+                )
+            if is_dataclass(self.structured_output_model):
+                return cast(
+                    ModelTypeVar,
+                    self.structured_output_model(**result),  # type: ignore[call-arg]
+                )
+            # Fallback: assume TypedDict
+            return cast(ModelTypeVar, result)
 
-        return RunnableLambda(parse_typed)
+        return RunnableLambda(parse_typed, name="Typed Parser")

@@ -6,6 +6,7 @@ from .type_definitions import (
     LanguageModelOutputVar,
     ModelTypeVar,
     PromptOutputVar,
+    is_typed_dict,
 )
 from .strategy import Strategy
 
@@ -16,6 +17,7 @@ __all__ = [
     "ChainInputType",
     "ChainOutputVar",
     "PromptOutputVar",
+    "is_typed_dict",
     "LanguageModelOutputVar",
     "ModelTypeVar",
     "Strategy",
