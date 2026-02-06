@@ -26,7 +26,12 @@ from langchain_text_splitters import (
 )
 from pydantic import BaseModel
 
-from ..support import ChainInputType, ChainOutputVar, ModelTypeVar, RagDocumentIngestor
+from .type_definitions import (
+    ChainInputType,
+    ChainOutputVar,
+    ModelTypeVar,
+)
+from .rag_document_ingestor import RagDocumentIngestor
 
 
 # pylint: disable=too-many-instance-attributes, too-many-public-methods
@@ -110,6 +115,15 @@ class BaseFactory(ABC, Generic[ChainOutputVar, ModelTypeVar]):
         if self._detailed_logging:
             return runnable | self.passthrough_logger(caption)
         return runnable
+
+    @property
+    def output_type(self) -> type[ChainOutputVar]:
+        """
+        Gets the output type for the chain.
+
+        :return: The current output type.
+        """
+        return self._output_type
 
     @property
     def structured_model_type(self) -> type[ModelTypeVar] | None:

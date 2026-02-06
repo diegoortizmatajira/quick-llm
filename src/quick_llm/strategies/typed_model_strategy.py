@@ -1,7 +1,7 @@
 """TypedModelStrategy: A strategy for adapting language models to produce typed outputs."""
 
 from dataclasses import is_dataclass
-from typing import Generic, TypedDict, cast, override
+from typing import Generic, Self, cast, override
 
 from langchain_core.language_models import (
     BaseChatModel,
@@ -10,9 +10,9 @@ from langchain_core.language_models import (
 from langchain_core.runnables import Runnable, RunnableLambda
 from pydantic import BaseModel
 
+from ..support import ModelTypeVar, BaseFactory
 from .base_model_strategy import BaseModelStrategy
 from .base_strategy import transparent_runner
-from ..support import ModelTypeVar
 
 
 class TypedModelStrategy(
@@ -99,3 +99,13 @@ class TypedModelStrategy(
             return cast(ModelTypeVar, result)
 
         return RunnableLambda(parse_typed, name="Typed Parser")
+
+    @override
+    @classmethod
+    def should_be_selected(cls, factory: BaseFactory) -> Self | None:
+        if (
+            factory.structured_model_type is not None
+            and factory.output_type is factory.structured_model_type
+        ):
+            return cls(factory)
+        return None

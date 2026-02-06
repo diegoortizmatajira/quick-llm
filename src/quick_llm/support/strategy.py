@@ -1,10 +1,11 @@
 """Strategy interface for adapting language models to specific use cases."""
 
 from abc import ABC, abstractmethod
-from typing import Generic
+from typing import Generic, Self
 
 from langchain_core.runnables import Runnable
 
+from .base_factory import BaseFactory
 from .type_definitions import ChainOutputVar, LanguageModelInput, LanguageModelOutputVar
 
 
@@ -36,3 +37,17 @@ class Strategy(ABC, Generic[LanguageModelOutputVar]):
     @abstractmethod
     def output_transformer(self) -> Runnable[LanguageModelOutputVar, ChainOutputVar]:
         """Returns a runnable that transforms the model output to the desired chain output."""
+
+    @classmethod
+    def should_be_selected(cls, _factory: BaseFactory) -> Self | None:
+        """
+        Determines whether this strategy should be selected based on the current context.
+
+        This method can be overridden to provide custom logic for strategy selection,
+        such as checking the type of language model, the desired output format, or
+        other contextual factors.
+
+        Returns:
+            bool: True if this strategy should be selected, False otherwise.
+        """
+        return None

@@ -1,6 +1,6 @@
 """Module defining a strategy for handling language models that return dictionary outputs."""
 
-from typing import Generic, cast, override
+from typing import Generic, Self, cast, get_origin, override
 
 from langchain_core.language_models import (
     BaseLanguageModel,
@@ -8,8 +8,7 @@ from langchain_core.language_models import (
 )
 from langchain_core.runnables import Runnable, RunnableLambda
 
-from quick_llm.support import ModelTypeVar
-
+from ..support import ModelTypeVar, BaseFactory
 from .base_model_strategy import BaseModelStrategy
 
 
@@ -46,3 +45,13 @@ class DictModelStrategy(Generic[ModelTypeVar], BaseModelStrategy[dict, ModelType
         return self.wrap(
             self.language_model, "Language model without structured output"
         ) | self.wrap(self.dict_parser, "Dict output parser")
+
+    @override
+    @classmethod
+    def should_be_selected(cls, factory: BaseFactory) -> Self | None:
+        if (
+            factory.structured_model_type is not None
+            and get_origin(factory.output_type) is dict
+        ):
+            return cls(factory)
+        return None

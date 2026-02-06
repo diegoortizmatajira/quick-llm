@@ -45,7 +45,7 @@ class TestAdaptLLM:
         mocked_llm.with_structured_output.return_value = structured_llm
 
         factory = (
-            ChainFactory(model)
+            ChainFactory.for_typed_output(model)
             .use_language_model(mocked_llm)
             .use_structured_output(model)
         )
@@ -108,7 +108,7 @@ class TestAdaptLLM:
             responses=['{"answer": "Answer 1"}', '{"answer": "Answer 2"}']
         )
         factory = (
-            ChainFactory(model)
+            ChainFactory.for_typed_output(model)
             .use_language_model(base_llm)
             .use_structured_output(model)
         )

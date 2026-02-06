@@ -1,13 +1,13 @@
 """A strategy for not modifying the outputs from language models."""
 
-from typing import Generic, cast, override
+from typing import Generic, Self, cast, override
 
 from langchain_core.language_models import (
     LanguageModelInput,
 )
 from langchain_core.runnables import Runnable
 
-from ..support.type_definitions import LanguageModelOutputVar
+from ..support import BaseFactory, LanguageModelOutputVar
 from .base_strategy import BaseStrategy
 
 
@@ -24,4 +24,11 @@ class NullStrategy(
 
     @override
     def adapt_llm(self) -> Runnable[LanguageModelInput, LanguageModelOutputVar]:
-        return cast(Runnable[LanguageModelInput, LanguageModelOutputVar], self.language_model)
+        return cast(
+            Runnable[LanguageModelInput, LanguageModelOutputVar], self.language_model
+        )
+
+    @override
+    @classmethod
+    def should_be_selected(cls, factory: BaseFactory) -> Self | None:
+        return cls(factory)

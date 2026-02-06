@@ -5,7 +5,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
-from ..factory.base_factory import BaseFactory
+from ..support.base_factory import BaseFactory
 from ..support import ModelTypeVar
 from .base_strategy import BaseStrategy
 

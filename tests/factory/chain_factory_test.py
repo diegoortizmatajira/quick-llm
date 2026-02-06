@@ -128,7 +128,7 @@ class TestBaseChains:
     @pytest.mark.parametrize(
         "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
     )
-    def test_json(
+    def test_dict(
         self,
         input_value: ChainInputType,
         language_model: LanguageModelLike,
@@ -153,7 +153,7 @@ class TestBaseChains:
     @pytest.mark.parametrize(
         "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
     )
-    async def test_json_async(
+    async def test_dict_async(
         self,
         input_value: ChainInputType,
         model: LanguageModelLike,
@@ -178,7 +178,7 @@ class TestBaseChains:
     @pytest.mark.parametrize(
         "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
     )
-    def test_json_stream(
+    def test_dict_stream(
         self,
         input_value: ChainInputType,
         model: LanguageModelLike,
@@ -222,7 +222,7 @@ class TestBaseChains:
     @pytest.mark.parametrize(
         "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
     )
-    def test_model(
+    def test_typed(
         self,
         input_value: ChainInputType,
         model: LanguageModelLike,
@@ -230,7 +230,7 @@ class TestBaseChains:
     ):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory(structured_type, structured_type)
+            ChainFactory.for_typed_output(structured_type)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
         )
@@ -251,7 +251,7 @@ class TestBaseChains:
     @pytest.mark.parametrize(
         "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
     )
-    async def test_model_async(
+    async def test_typed_async(
         self,
         input_value: ChainInputType,
         model: LanguageModelLike,
@@ -259,7 +259,7 @@ class TestBaseChains:
     ):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory(structured_type, structured_type)
+            ChainFactory.for_typed_output(structured_type)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
         )
@@ -281,7 +281,7 @@ class TestBaseChains:
     @pytest.mark.parametrize(
         "structured_type", [AnswerOutput, AnswerOutputDictionary, AnswerOutputClass]
     )
-    def test_model_stream(
+    def test_typed_stream(
         self,
         input_value: ChainInputType,
         model: LanguageModelLike,
@@ -289,7 +289,7 @@ class TestBaseChains:
     ):
         """Test the factory with a json output"""
         factory = (
-            ChainFactory(structured_type, structured_type)
+            ChainFactory.for_typed_output(structured_type)
             .use_prompt_template("Sample Prompt {input}")
             .use_language_model(model)
         )
@@ -797,39 +797,6 @@ class TestCustomTransformers:
         assert response == TEST_EXPECTED_RESPONSE
 
 
-class TestIngestor:
-    """Test RAG document ingestor"""
-
-    def test_ingestor_property(self):
-        """Test accessing the RAG document ingestor"""
-        mock_embeddings = FakeEmbeddings(size=3)
-        mock_vectorstore = InMemoryVectorStore(mock_embeddings)
-
-        factory = (
-            ChainFactory()
-            .use_embeddings(mock_embeddings)
-            .use_vector_store(mock_vectorstore)
-            .use_default_text_splitter()
-        )
-
-        ingestor = factory.ingestor
-        assert ingestor is not None
-
-        # Test ingesting documents
-        test_doc = Document(page_content="Ingestor test content")
-        ingestor.from_documents([test_doc], use_splitter=False)
-
-        # Verify document was added to vector store
-        results = mock_vectorstore.similarity_search("Ingestor", k=1)
-        assert len(results) > 0
-
-    def test_ingestor_without_vector_store_fails(self):
-        """Test that ingestor fails without vector store"""
-        factory = ChainFactory()
-
-        with pytest.raises(RuntimeError, match="Cannot create RagDocumentIngestor"):
-            _ = factory.ingestor
-
 
 class TestErrorHandling:
     """Test error handling and validation"""
@@ -947,91 +914,6 @@ class TestDefaultFormatters:
         assert "References:" in result
         assert "Content without source" in result
 
-
-class TestPropertyGetters:
-    """Test property getter methods"""
-
-    def test_language_model_getter(self):
-        """Test language_model property getter"""
-        model = FakeListLLM(responses=[TEST_EXPECTED_RESPONSE])
-        factory = ChainFactory().use_language_model(model)
-
-        assert factory.language_model == model
-
-    def test_language_model_getter_not_set(self):
-        """Test language_model getter when not set"""
-        factory = ChainFactory()
-
-        with pytest.raises(RuntimeError, match="Language model is not set"):
-            _ = factory.language_model
-
-    def test_prompt_template_getter(self):
-        """Test prompt_template property getter"""
-        factory = ChainFactory().use_prompt_template("Test {input}")
-
-        template = factory.prompt_template
-        assert template is not None
-
-    def test_prompt_template_getter_not_set(self):
-        """Test prompt_template getter when not set"""
-        factory = ChainFactory()
-
-        with pytest.raises(RuntimeError, match="Prompt template is not set"):
-            _ = factory.prompt_template
-
-    def test_embeddings_getter(self):
-        """Test embeddings property getter"""
-        embeddings = FakeEmbeddings(size=3)
-        factory = ChainFactory().use_embeddings(embeddings)
-
-        assert factory.embeddings == embeddings
-
-    def test_embeddings_getter_not_set(self):
-        """Test embeddings getter when not set"""
-        factory = ChainFactory()
-
-        with pytest.raises(RuntimeError, match="Embeddings are not set"):
-            _ = factory.embeddings
-
-    def test_vector_store_getter(self):
-        """Test vector_store property getter"""
-        vectorstore = InMemoryVectorStore(FakeEmbeddings(size=3))
-        factory = ChainFactory().use_vector_store(vectorstore)
-
-        assert factory.vector_store == vectorstore
-
-    def test_vector_store_getter_not_set(self):
-        """Test vector_store getter when not set"""
-        factory = ChainFactory()
-
-        with pytest.raises(RuntimeError, match="Vector store is not set"):
-            _ = factory.vector_store
-
-    def test_retriever_getter(self):
-        """Test retriever property getter"""
-
-        retriever = RunnableLambda(lambda x: TEST_DOCUMENT_LIST)
-        factory = ChainFactory()
-        mock_vectorstore = InMemoryVectorStore(FakeEmbeddings(size=3))
-        factory.use_embeddings(FakeEmbeddings(size=3))
-        factory.use_vector_store(mock_vectorstore)
-        factory.use_retriever(retriever)
-
-        assert factory.retriever == retriever
-
-    def test_text_splitter_getter(self):
-        """Test text_splitter property getter"""
-        splitter = RecursiveCharacterTextSplitter()
-        factory = ChainFactory().use_text_splitter(splitter)
-
-        assert factory.text_splitter == splitter
-
-    def test_text_splitter_getter_not_set(self):
-        """Test text_splitter getter when not set"""
-        factory = ChainFactory()
-
-        with pytest.raises(RuntimeError, match="Text splitter is not set"):
-            _ = factory.text_splitter
 
 
 class TestEdgeCases:

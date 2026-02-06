@@ -7,12 +7,12 @@ from langchain_core.language_models import (
 )
 from langchain_core.runnables import Runnable, RunnableLambda
 
-from ..factory.base_factory import BaseFactory
 from ..support import (
     ModelTypeVar,
     ChainOutputVar,
     LanguageModelOutputVar,
     Strategy,
+    BaseFactory,
 )
 
 

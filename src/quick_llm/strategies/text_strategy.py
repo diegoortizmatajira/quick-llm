@@ -1,6 +1,6 @@
 """A strategy module for handling string-based outputs from language models."""
 
-from typing import Any, override
+from typing import Any, Self, override
 
 from langchain_core.language_models import (
     LanguageModelInput,
@@ -9,6 +9,7 @@ from langchain_core.language_models import (
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable
 
+from ..support import BaseFactory
 from .base_strategy import BaseStrategy
 
 
@@ -47,3 +48,10 @@ class TextStrategy(BaseStrategy[Any, Any]):
             into a string output.
         """
         return StrOutputParser()
+
+    @override
+    @classmethod
+    def should_be_selected(cls, factory: BaseFactory) -> Self | None:
+        if factory.output_type is str:
+            return cls(factory)
+        return None

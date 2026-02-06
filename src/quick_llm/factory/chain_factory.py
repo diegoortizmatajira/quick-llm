@@ -1,10 +1,12 @@
 """Factory class for managing language model instances."""
 
 from typing import (
+    Any,
     AsyncIterator,
     Callable,
     Iterator,
     Self,
+    Type,
     cast,
     get_origin,
     overload,
@@ -25,6 +27,7 @@ from langchain_core.runnables import (
 )
 
 from ..support import (
+    BaseFactory,
     PromptInputParser,
     ChainInputType,
     ChainOutputVar,
@@ -37,7 +40,6 @@ from ..strategies import (
     TypedModelStrategy,
     NullStrategy,
 )
-from .base_factory import BaseFactory
 
 
 # pylint: disable=too-many-instance-attributes disable=too-many-public-methods
@@ -57,6 +59,12 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         self._in_transf: Runnable[ChainInputType, dict] | None = None
         self._out_transf: Runnable[LanguageModelOutput, ChainOutputVar] | None = None
         # Customizable behaviors
+        self._strategies: list[Type[Strategy[Any]]] = [
+            TextStrategy,
+            DictModelStrategy,
+            TypedModelStrategy,
+            NullStrategy,
+        ]
         self.__strategy: Strategy | None = None
         self.__out_cleaner: Callable[[str], str] = self.default_cleaner_function
         self.__ctx_formatter: Callable[[list[Document]], str] = (
@@ -84,7 +92,7 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
 
     @staticmethod
     def for_structured_output(
-        json_model: type[ModelTypeVar],
+        structured_model_type: type[ModelTypeVar],
     ) -> "ChainFactory[dict[str, object], ModelTypeVar]":
         """
         Creates a ChainFactory instance based on a given JSON model.
@@ -92,7 +100,19 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         :param json_model: A Pydantic BaseModel class that will be used to interpret JSON outputs.
         :return: A ChainFactory instance configured to use the provided JSON model.
         """
-        return ChainFactory(dict[str, object], json_model)
+        return ChainFactory(dict[str, object], structured_model_type)
+
+    @staticmethod
+    def for_typed_output(
+        structured_model_type: type[ModelTypeVar],
+    ) -> "ChainFactory[ModelTypeVar, ModelTypeVar]":
+        """
+        Creates a ChainFactory instance based on a given JSON model.
+
+        :param json_model: A Pydantic BaseModel class that will be used to interpret JSON outputs.
+        :return: A ChainFactory instance configured to use the provided JSON model.
+        """
+        return ChainFactory(structured_model_type, structured_model_type)
 
     @staticmethod
     def for_rag_with_sources() -> "ChainFactory[dict[str, object],None]":
@@ -553,29 +573,17 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         Selects and initializes the appropriate strategy based on the output type
         and structured model type.
         """
-        if self.structured_model_type is None:
-            if self._output_type is str:
-                self._logger.debug("Selecting TextStrategy for string output.")
-                self.__strategy = TextStrategy(self)
-            else:
+        for strategy_cls in self._strategies:
+            strategy = strategy_cls.should_be_selected(self)
+            if strategy:
                 self._logger.debug(
-                    "Selecting NullStrategy for '%s' output type.", self._output_type
+                    "Selecting %s for output type '%s' and structured model type '%s'.",
+                    strategy_cls.__name__,
+                    self._output_type,
+                    self.structured_model_type,
                 )
-                self.__strategy = NullStrategy(self)
-        else:
-            if get_origin(self._output_type) is dict:
-                self._logger.debug("Selecting DictModelStrategy for dict output.")
-                self.__strategy = DictModelStrategy(self)
-            elif self._output_type is self.structured_model_type:
-                self._logger.debug(
-                    "Selecting TypedModelStrategy for typed model output."
-                )
-                self.__strategy = TypedModelStrategy(self)
-            else:
-                self._logger.debug(
-                    "Selecting NullStrategy for '%s' output type.", self._output_type
-                )
-                self.__strategy = NullStrategy(self)
+                self.__strategy = strategy
+                return
 
     def __build_without_rag(
         self,

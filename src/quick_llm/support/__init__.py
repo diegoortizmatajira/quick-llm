@@ -12,6 +12,7 @@ from .strategy import Strategy
 
 from .prompt_input_parser import PromptInputParser
 from .rag_document_ingestor import RagDocumentIngestor
+from .base_factory import BaseFactory
 
 __all__ = [
     "ChainInputType",
@@ -23,4 +24,5 @@ __all__ = [
     "Strategy",
     "PromptInputParser",
     "RagDocumentIngestor",
+    "BaseFactory",
 ]
