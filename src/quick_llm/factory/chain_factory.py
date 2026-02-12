@@ -8,7 +8,6 @@ from typing import (
     Self,
     Type,
     cast,
-    get_origin,
     overload,
     override,
 )
@@ -28,6 +27,7 @@ from langchain_core.runnables import (
 
 from ..support import (
     BaseFactory,
+    FlowAssembler,
     PromptInputParser,
     ChainInputType,
     ChainOutputVar,
@@ -39,6 +39,9 @@ from ..strategies import (
     DictModelStrategy,
     TypedModelStrategy,
     NullStrategy,
+)
+from ..assemblers import (
+    DefaultAssembler,
 )
 
 
@@ -65,7 +68,10 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
             TypedModelStrategy,
             NullStrategy,
         ]
-        self.__strategy: Strategy | None = None
+        self._assemblers: list[Type[FlowAssembler]] = [
+            DefaultAssembler,
+        ]
+        self.__assembler: FlowAssembler | None = None
         self.__out_cleaner: Callable[[str], str] = self.default_cleaner_function
         self.__ctx_formatter: Callable[[list[Document]], str] = (
             self.default_context_formatter
@@ -187,26 +193,15 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         return self.__structured_output_model
 
     @property
-    def strategy(self) -> Strategy:
+    def assembler(self) -> FlowAssembler:
         """
-        Gets the strategy instance.
+        Gets the assembler instance.
 
-        :return: The current instance of Strategy or None if not set.
+        :return: The current instance of FlowAssembler or None if not set.
         """
-        if self.__strategy is None:
-            raise self._fail("Strategy is not set.")
-        return self.__strategy
-
-    @property
-    def input_transformer(self) -> Runnable[ChainInputType, dict]:
-        """
-        Gets the input transformer instance.
-
-        :return: The current instance of Runnable for input transformation.
-        """
-        if self._in_transf is None:
-            self._in_transf = PromptInputParser(self.__param_input)
-        return self._in_transf
+        if self.__assembler is None:
+            raise self._fail("Assembler is not set.")
+        return self.__assembler
 
     @property
     def uses_rag(self) -> bool:
@@ -340,6 +335,18 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         return RunnableGenerator(
             formatter_function, aformatter_function, name="Document Formatter"
         )
+
+    @property
+    @override
+    def input_transformer(self) -> Runnable[ChainInputType, dict]:
+        """
+        Gets the input transformer instance.
+
+        :return: The current instance of Runnable for input transformation.
+        """
+        if self._in_transf is None:
+            self._in_transf = PromptInputParser(self.__param_input)
+        return self._in_transf
 
     @property
     def final_answer_formatter(self) -> Runnable[dict, str]:
@@ -570,8 +577,14 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
 
     def select_strategy(self):
         """
-        Selects and initializes the appropriate strategy based on the output type
-        and structured model type.
+        Selects the appropriate strategy for the ChainFactory instance.
+
+        This method iterates over the available strategies, determining which one
+        should be selected based on the current configuration of the factory. Once
+        a suitable strategy is found, it is set as the active strategy for the
+        factory.
+
+        :raises RuntimeError: If no suitable strategy is found.
         """
         for strategy_cls in self._strategies:
             strategy = strategy_cls.should_be_selected(self)
@@ -582,45 +595,31 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
                     self._output_type,
                     self.structured_model_type,
                 )
-                self.__strategy = strategy
+                self._strategy = strategy
                 return
 
-    def __build_without_rag(
-        self,
-    ) -> Runnable[ChainInputType, ChainOutputVar]:
+    def select_assembler(self):
         """
-        Constructs and returns the complete runnable chain without RAG components.
+        Selects the appropriate assembler for the ChainFactory instance.
 
-        The chain consists of the following components, connected sequentially:
-        - Input transformer: Transforms raw input into a structured format.
-        - Additional values injector: Injects additional parameters required for the chain.
-        - Prompt template: Generates the prompt based on the transformed input.
-        - Language model: Generates an output based on the prompt.
-        - Output transformer: Parses and transforms the model output into the desired format.
+        This method iterates over the available assemblers, determining which one
+        should be selected based on the current configuration of the factory. Once
+        a suitable assembler is found, it is set as the active assembler for the
+        factory.
 
-        :return: A Runnable instance representing the complete chain.
+        :raises RuntimeError: If no suitable assembler is found.
         """
-        # if self.__structured_output_model is None:
-        #     self.__strategy = TextStrategy(cast(ChainFactory[Any, None], self))
-        # else:
-        #     self.__strategy = DictModelStrategy(
-        #         cast(ChainFactory[Any, ModelTypeVar], self)
-        #     )
-        # adapted_language_model = self.strategy.adapted_llm
-
-        chain = (
-            self.wrap(self.input_transformer, "Input Transformer")
-            | self.wrap(self.additional_values_injector, "Additional Values Injector")
-            | self.wrap(self.prompt_template, "Prompt Template")
-            | self.wrap(self.strategy.adapted_llm, "Strategy Adapted LLM")
-            # | self.wrap(self.language_model, "Language Model")
-            # | self.wrap(self.output_cleaner, "Output Cleaner")
-            # | self.wrap(self.output_transformer, "Output Transformer")
-        )
-        self._logger.debug(
-            "Built chain without RAG components: %s", self._pretty_runnable(chain)
-        )
-        return chain
+        for assembler_cls in self._assemblers:
+            assembler = assembler_cls.should_be_selected(self)
+            if assembler:
+                self._logger.debug(
+                    "Selecting %s for output type '%s' and structured model type '%s'.",
+                    assembler_cls.__name__,
+                    self._output_type,
+                    self.structured_model_type,
+                )
+                self.__assembler = assembler
+                return
 
     def __build_with_rag(self) -> Runnable[ChainInputType, ChainOutputVar]:
         chain = (
@@ -728,15 +727,8 @@ class ChainFactory(BaseFactory[ChainOutputVar, ModelTypeVar]):
         """
         self._logger.info("Building chain")
         self.select_strategy()
-        chain = (
-            self.wrap(self.input_transformer, "Input Transformer")
-            | self.wrap(self.additional_values_injector, "Additional Values Injector")
-            | self.wrap(self.prompt_template, "Prompt Template")
-            | self.wrap(self.strategy.adapted_llm, "Strategy Adapted LLM")
-            # | self.wrap(self.language_model, "Language Model")
-            # | self.wrap(self.output_cleaner, "Output Cleaner")
-            # | self.wrap(self.output_transformer, "Output Transformer")
-        )
+        self.select_assembler()
+        chain = self.assembler.assemble()
         self._logger.debug("Built chain: %s", self._pretty_runnable(chain))
         return chain
         # if self.uses_rag:

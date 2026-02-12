@@ -14,6 +14,7 @@ from .support import (
     PromptOutputVar,
     LanguageModelOutputVar,
     Strategy,
+    FlowAssembler,
     RagDocumentIngestor,
     PromptInputParser,
 )
@@ -32,4 +33,5 @@ __all__ = [
     "PromptOutputVar",
     "RagDocumentIngestor",
     "Strategy",
+    "FlowAssembler",
 ]

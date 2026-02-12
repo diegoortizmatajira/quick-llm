@@ -6,7 +6,15 @@ customizable input/output transformations and logging.
 import importlib.util
 import logging
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Callable, Generic, Iterator, Self, overload
+from typing import (
+    TYPE_CHECKING,
+    AsyncIterator,
+    Callable,
+    Generic,
+    Iterator,
+    Self,
+    overload,
+)
 
 from langchain.chat_models import init_chat_model
 from langchain_core.embeddings import Embeddings
@@ -26,12 +34,16 @@ from langchain_text_splitters import (
 )
 from pydantic import BaseModel
 
+
+from .rag_document_ingestor import RagDocumentIngestor
 from .type_definitions import (
     ChainInputType,
     ChainOutputVar,
     ModelTypeVar,
 )
-from .rag_document_ingestor import RagDocumentIngestor
+
+if TYPE_CHECKING:
+    from .strategy import Strategy
 
 
 # pylint: disable=too-many-instance-attributes, too-many-public-methods
@@ -59,6 +71,8 @@ class BaseFactory(ABC, Generic[ChainOutputVar, ModelTypeVar]):
         self._embeddings: Embeddings | None = None
         self._vector_store: VectorStore | None = None
         self._retriever: RetrieverLike | None = None
+        # Customizable components
+        self._strategy: "Strategy | None" = None
 
     def _fail(self, message: str) -> Exception:
         self._logger.error(message)
@@ -221,6 +235,26 @@ class BaseFactory(ABC, Generic[ChainOutputVar, ModelTypeVar]):
             vector_store=self.vector_store,
             text_splitter=self.text_splitter,
         )
+
+    @property
+    @abstractmethod
+    def input_transformer(self) -> Runnable[ChainInputType, dict]:
+        """
+        Gets the input transformer instance.
+
+        :return: The current instance of Runnable for input transformation.
+        """
+
+    @property
+    def strategy(self) -> "Strategy":
+        """
+        Gets the strategy instance.
+
+        :return: The current instance of Strategy or None if not set.
+        """
+        if self._strategy is None:
+            raise self._fail("Strategy is not set.")
+        return self._strategy
 
     def use(self, visitor: Callable[[Self], None]) -> Self:
         """

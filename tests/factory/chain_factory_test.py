@@ -1,8 +1,7 @@
 """Tests for the ChainFactory class"""
 
-from dataclasses import is_dataclass
 import json
-from typing import Type, TypedDict, cast
+from typing import Type, cast
 
 import pytest
 from langchain_core.documents import Document
@@ -15,9 +14,7 @@ from langchain_core.language_models import (
     LanguageModelOutput,
 )
 from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.runnables import RunnableLambda
 from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from quick_llm import ChainFactory, ChainInputType
 from quick_llm.support import is_typed_dict

@@ -55,6 +55,7 @@ class BaseStrategy(
         """Returns the language model from the factory."""
         return self.__factory.language_model
 
+    @property
     @override
     def prompt_input_adapter(self) -> Runnable[dict, dict]:
         """Returns a runnable that adapts the chain input to the model prompt input."""
@@ -74,6 +75,7 @@ class BaseStrategy(
             self.__adapted_llm = self.adapt_llm()
         return self.__adapted_llm
 
+    @property
     @override
     def output_transformer(self) -> Runnable[LanguageModelOutputVar, ChainOutputVar]:
         """Returns a runnable that transforms the model output to the desired chain output."""
